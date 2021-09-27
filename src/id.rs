@@ -270,14 +270,24 @@ mod tests {
     #[test]
     fn parse_steam2_id() {
         let id = "STEAM_0:0:23071901".parse::<Id>();
-        println!("parse_steam2_id: {:?}", id);
-        println!("{}", id.unwrap().to_steam2(true).unwrap());
+        assert!(id.is_ok(), "failed to parse steam2 id");
+
+        let id = id.unwrap();
+        assert_eq!(id.universe, Universe::Public, "universe does not match");
+        assert_eq!(id.type_, Type::Individual, "type does not match");
+        assert_eq!(id.instance, Instance::Desktop, "instance does not match");
+        assert_eq!(id.account, 46143802, "account id does not match");
     }
 
     #[test]
     fn parse_steam3_id() {
         let id = "[U:1:46143802]".parse::<Id>();
-        println!("parse_steam3_id: {:?}", id);
-        println!("{}", id.unwrap().to_steam3());
+        assert!(id.is_ok(), "failed to parse steam3 id");
+
+        let id = id.unwrap();
+        assert_eq!(id.universe, Universe::Public, "universe does not match");
+        assert_eq!(id.type_, Type::Individual, "type does not match");
+        assert_eq!(id.instance, Instance::Desktop, "instance does not match");
+        assert_eq!(id.account, 46143802, "account id does not match");
     }
 }
