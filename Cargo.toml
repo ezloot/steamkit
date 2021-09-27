@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["JAD3N <me@jaden.bio>"]
 edition = "2018"
 license = "MIT"
+readme = "README.md"
 repository = "https://github.com/jad3n/steam-kit"
 documentation = "https://docs.rs/steam-kit/0.1.0"
 description = """
