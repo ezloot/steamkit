@@ -237,17 +237,21 @@ impl Id {
             chr = 'L';
         }
 
-        let mut s = format!("[{}:{}:{}", chr, self.universe as u64, self.account as u64);
         let use_instance = self.type_ == Type::AnonGameServer
             || self.type_ == Type::Multiseat
             || (self.type_ == Type::Individual && self.instance != Instance::Desktop);
 
-        if use_instance {
-            s.push_str(&format!(":{}", self.instance as u64));
-        }
-
-        s.push(']');
-        s
+        format!(
+            "[{}:{}:{}{}]",
+            chr,
+            self.universe as u64,
+            self.account as u64,
+            if use_instance {
+                format!(":{}", self.instance as u64)
+            } else {
+                "".into()
+            },
+        )
     }
 }
 
@@ -273,10 +277,15 @@ mod tests {
         assert!(id.is_ok(), "failed to parse steam2 id");
 
         let id = id.unwrap();
+
         assert_eq!(id.universe, Universe::Public, "universe does not match");
         assert_eq!(id.type_, Type::Individual, "type does not match");
         assert_eq!(id.instance, Instance::Desktop, "instance does not match");
         assert_eq!(id.account, 46143802, "account id does not match");
+
+        assert_eq!(id.to_steam2(false).unwrap(), "STEAM_0:0:23071901");
+        assert_eq!(id.to_steam2(true).unwrap(), "STEAM_1:0:23071901");
+        assert_eq!(id.to_steam3(), "[U:1:46143802]");
     }
 
     #[test]
@@ -285,9 +294,14 @@ mod tests {
         assert!(id.is_ok(), "failed to parse steam3 id");
 
         let id = id.unwrap();
+
         assert_eq!(id.universe, Universe::Public, "universe does not match");
         assert_eq!(id.type_, Type::Individual, "type does not match");
         assert_eq!(id.instance, Instance::Desktop, "instance does not match");
         assert_eq!(id.account, 46143802, "account id does not match");
+
+        assert_eq!(id.to_steam2(false).unwrap(), "STEAM_0:0:23071901");
+        assert_eq!(id.to_steam2(true).unwrap(), "STEAM_1:0:23071901");
+        assert_eq!(id.to_steam3(), "[U:1:46143802]");
     }
 }
