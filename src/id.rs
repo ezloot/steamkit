@@ -1,7 +1,7 @@
 use regex::Regex;
 use thiserror::Error;
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 
 lazy_static! {
@@ -10,17 +10,23 @@ lazy_static! {
 }
 
 #[derive(Error, Debug)]
-pub enum IdParseError {
+pub enum IdError {
     #[error("invalid universe")]
     InvalidUniverse(#[from] TryFromPrimitiveError<Universe>),
     #[error("invalid type")]
     InvalidType(#[from] TryFromPrimitiveError<Type>),
     #[error("invalid instance")]
     InvalidInstance(#[from] TryFromPrimitiveError<Instance>),
+    #[error("invalid type char")]
+    InvalidTypeChar(char),
+    #[error("type doesn't have char")]
+    MissingTypeChar(Type),
     #[error("failed to parse integer")]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("unknown id error")]
     Unknown,
+    #[error("steam2 id can only be individual type")]
+    IncompatibleVersion,
 }
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
@@ -51,38 +57,42 @@ pub enum Type {
     AnonUser = 10,
 }
 
-impl Into<char> for Type {
-    fn into(self) -> char {
+impl TryInto<char> for Type {
+    type Error = IdError;
+
+    fn try_into(self) -> Result<char, Self::Error> {
         match &self {
-            Type::Invalid => 'I',
-            Type::Individual => 'U',
-            Type::Multiseat => 'M',
-            Type::GameServer => 'G',
-            Type::AnonGameServer => 'A',
-            Type::Pending => 'P',
-            Type::ContentServer => 'C',
-            Type::Clan => 'g',
-            Type::Chat => 'T',
-            Type::AnonUser => 'a',
-            _ => panic!("type cannot be converted to char"),
+            Type::Invalid => Ok('I'),
+            Type::Individual => Ok('U'),
+            Type::Multiseat => Ok('M'),
+            Type::GameServer => Ok('G'),
+            Type::AnonGameServer => Ok('A'),
+            Type::Pending => Ok('P'),
+            Type::ContentServer => Ok('C'),
+            Type::Clan => Ok('g'),
+            Type::Chat => Ok('T'),
+            Type::AnonUser => Ok('a'),
+            _ => Err(IdError::MissingTypeChar(self)),
         }
     }
 }
 
-impl From<char> for Type {
-    fn from(chr: char) -> Self {
+impl TryFrom<char> for Type {
+    type Error = IdError;
+
+    fn try_from(chr: char) -> Result<Self, Self::Error> {
         match chr {
-            'I' => Type::Invalid,
-            'U' => Type::Individual,
-            'M' => Type::Multiseat,
-            'G' => Type::GameServer,
-            'A' => Type::AnonGameServer,
-            'P' => Type::Pending,
-            'C' => Type::ContentServer,
-            'g' => Type::Clan,
-            'T' | 'L' | 'c' => Type::Chat,
-            'a' => Type::AnonUser,
-            _ => panic!("char cannot be converted to type"),
+            'I' => Ok(Type::Invalid),
+            'U' => Ok(Type::Individual),
+            'M' => Ok(Type::Multiseat),
+            'G' => Ok(Type::GameServer),
+            'A' => Ok(Type::AnonGameServer),
+            'P' => Ok(Type::Pending),
+            'C' => Ok(Type::ContentServer),
+            'g' => Ok(Type::Clan),
+            'T' | 'L' | 'c' => Ok(Type::Chat),
+            'a' => Ok(Type::AnonUser),
+            _ => Err(IdError::InvalidTypeChar(chr)),
         }
     }
 }
@@ -117,7 +127,7 @@ impl Default for Id {
 }
 
 impl FromStr for Id {
-    type Err = IdParseError;
+    type Err = IdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(caps) = STEAM2_ID_REGEX.captures(s) {
@@ -161,7 +171,7 @@ impl FromStr for Id {
                     instance |= (0x000FFFFF + 1) >> 2;
                     Type::Chat
                 },
-                chr => Type::try_from(chr as u64)?,
+                chr => Type::try_from(chr)?,
             };
 
             let instance = Instance::try_from_primitive(instance)?;
@@ -175,13 +185,13 @@ impl FromStr for Id {
         } else if let Ok(value) = s.parse::<u64>() {
             Self::from_u64(value)
         } else {
-            Err(IdParseError::Unknown)
+            Err(IdError::Unknown)
         }
     }
 }
 
 impl Id {
-    pub fn from_u64(value: u64) -> Result<Self, IdParseError> {
+    pub fn from_u64(value: u64) -> Result<Self, IdError> {
         let account = value & 0xFFFFFFFF;
         let instance = Instance::try_from((value >> 32) & 0x000FFFFF)?;
         let type_ = Type::try_from((value >> 52) & 0xF)?;
@@ -213,21 +223,21 @@ impl Id {
         (universe << 56) | (type_ << 52) | (instance << 32) | account
     }
 
-    pub fn to_steam2(&self, new_format: bool) -> Option<String> {
+    pub fn to_steam2(&self, new_format: bool) -> Result<String, IdError> {
         if self.type_ != Type::Individual {
-            None
+            Err(IdError::IncompatibleVersion)
         } else {
             let mut universe = self.universe as u64;
             if !new_format && universe == 1 {
                 universe = 0;
             }
 
-            Some(format!("STEAM_{}:{}:{}", universe, self.account & 1, self.account / 2))
+            Ok(format!("STEAM_{}:{}:{}", universe, self.account & 1, self.account / 2))
         }
     }
 
-    pub fn to_steam3(&self) -> String {
-        let mut chr: char = self.type_.into();
+    pub fn to_steam3(&self) -> Result<String, IdError> {
+        let mut chr: char = self.type_.try_into()?;
 
         if self.instance as u64 & ((0x000FFFFF + 1) >> 1) > 0 {
             chr = 'c';
@@ -241,7 +251,7 @@ impl Id {
             || self.type_ == Type::Multiseat
             || (self.type_ == Type::Individual && self.instance != Instance::Desktop);
 
-        format!(
+        Ok(format!(
             "[{}:{}:{}{}]",
             chr,
             self.universe as u64,
@@ -251,7 +261,7 @@ impl Id {
             } else {
                 "".into()
             },
-        )
+        ))
     }
 }
 
@@ -285,7 +295,7 @@ mod tests {
 
         assert_eq!(id.to_steam2(false).unwrap(), "STEAM_0:0:23071901");
         assert_eq!(id.to_steam2(true).unwrap(), "STEAM_1:0:23071901");
-        assert_eq!(id.to_steam3(), "[U:1:46143802]");
+        assert_eq!(id.to_steam3().unwrap(), "[U:1:46143802]");
     }
 
     #[test]
@@ -302,6 +312,6 @@ mod tests {
 
         assert_eq!(id.to_steam2(false).unwrap(), "STEAM_0:0:23071901");
         assert_eq!(id.to_steam2(true).unwrap(), "STEAM_1:0:23071901");
-        assert_eq!(id.to_steam3(), "[U:1:46143802]");
+        assert_eq!(id.to_steam3().unwrap(), "[U:1:46143802]");
     }
 }
