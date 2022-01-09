@@ -1,0 +1,75 @@
+"appnews"
+{
+	"appid"	"440"
+	"newsitems"
+	{
+		"0"
+		{
+			"gid"	"4224939245935005507"
+			"title"	"Team Fortress 2 Update Released"
+			"url"	"https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/4224939245935005507"
+			"is_external_url"	"1"
+			"author"	"erics"
+			"contents"	"An update to Team Fortress 2 has been released. The update will be applied automatically when you restart Team Fortress 2. The major changes include:
+
+[list]
+[*]Fixed disguised/cloaked spies being able to block player destruction captures
+[*]Updated Minty Cypress, Pristine Pine, and Sparkly Spruce Unusual taunt effects to improve visibility in bright areas
+[*]Updated pl_breadspace[list]
+[*]Fixed being able to place buildings in the forward BLU spawn room[/list]
+[*]Updated pl_wutville_event[list]
+[*]Fixed a few static_prop models being used to stand on high up in the map[/list]
+[*]Updated cp_altitude[list]
+[*]Fixed tree models in the 3D skybox using the wrong skin[/list]
+[/list]"
+			"feedlabel"	"Community Announcements"
+			"date"	"1641414390"
+			"feedname"	"steam_community_announcements"
+			"feed_type"	"1"
+			"appid"	"440"
+			"tags"
+			{
+				"0"	"patchnotes"
+			}
+		}
+		"1"
+		{
+			"gid"	"4224939245935002444"
+			"title"	"Team Fortress 2 update for 5 January 2022"
+			"url"	"https://steamstore-a.akamaihd.net/news/externalpost/SteamDB/4224939245935002444"
+			"is_external_url"	"1"
+			"author"	"SteamDB"
+			"contents"	"<a href=\"https://steamdb.info/patchnotes/7975943/?utm_source=Steam&utm_medium=Steam&utm_campaign=SteamRSS\"><img src=\"https://steamdb.info/patchnotes/7975943.png?_=1641414723\"><br>Read patchnotes on SteamDB...</a>"
+			"feedlabel"	"SteamDB"
+			"date"	"1641414134"
+			"feedname"	"SteamDB"
+			"feed_type"	"0"
+			"appid"	"440"
+		}
+		"2"
+		{
+			"gid"	"4224939245935017562"
+			"title"	"Team Fortress 2 Update Released"
+			"url"	"https://steamstore-a.akamaihd.net/news/externalpost/tf2_blog/4224939245935017562"
+			"is_external_url"	"1"
+			"author"	""
+			"contents"	"An update to Team Fortress 2 has been released. The update will be applied automatically when you restart Team Fortress 2. The major changes include:<br/>
+<ul>
+<li>Fixed disguised/cloaked spies being able to block player destruction captures
+<li>Updated Minty Cypress, Pristine Pine, and Sparkly Spruce Unusual taunt effects to improve visibility in bright areas
+<li>Updated pl_breadspace<ul>
+<li>Fixed being able to place buildings in the forward BLU spawn room</ul>
+<li>Updated pl_wutville_event<ul>
+<li>Fixed a few static_prop models being used to stand on high up in the map</ul>
+<li>Updated cp_altitude<ul>
+<li>Fixed tree models in the 3D skybox using the wrong skin</ul>
+</ul>"
+			"feedlabel"	"TF2 Blog"
+			"date"	"1641411660"
+			"feedname"	"tf2_blog"
+			"feed_type"	"0"
+			"appid"	"440"
+		}
+	}
+	"count"	"3158"
+}
