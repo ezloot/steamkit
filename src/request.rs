@@ -58,8 +58,7 @@ macro_rules! request {
                 req = req.query(query).query(&[("format", "vdf")]);
             }
 
-            let res = req.send().await?;
-            std::fs::write("data.vdf", res.bytes().await?).unwrap();
+            let _res = req.send().await?;
 
             Ok(())
         }
