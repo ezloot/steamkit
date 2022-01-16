@@ -1,4 +1,6 @@
+use crate::vdf;
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 #[derive(thiserror::Error, Debug)]
@@ -7,11 +9,11 @@ pub enum Error {
     RequestError(#[from] reqwest::Error),
 }
 
-pub struct Config<T: Serialize + Sized> {
+pub struct Config<Q: Serialize + Sized> {
     pub iface: &'static str,
     pub method: &'static str,
     pub version: &'static str,
-    pub query: Option<T>,
+    pub query: Option<Q>,
 }
 
 macro_rules! request {
@@ -19,14 +21,18 @@ macro_rules! request {
         request!($httpMethod, |_headers| {});
     };
     ($httpMethod:ident, $headers:expr) => {
-        pub async fn $httpMethod<T: Serialize + Sized>(
+        pub async fn $httpMethod<T, Q>(
             Config {
                 iface,
                 method,
                 version,
                 query,
-            }: &Config<T>,
-        ) -> Result<(), Error> {
+            }: &Config<Q>,
+        ) -> Result<T, Error>
+        where
+            T: DeserializeOwned,
+            Q: Serialize + Sized,
+        {
             let mut headers = HeaderMap::new();
             headers.insert("Accept", HeaderValue::from_static("text/html,*/*;q=0.9"));
             headers.insert(
@@ -53,14 +59,14 @@ macro_rules! request {
                 version = version,
             );
 
-            let mut req = client.$httpMethod(path);
+            let mut req = client.$httpMethod(path).query(&[("format", "vdf")]);
             if let Some(query) = query {
-                req = req.query(query).query(&[("format", "vdf")]);
+                req = req.query(query)
             }
 
-            let _res = req.send().await?;
-
-            Ok(())
+            let s: String = req.send().await?.text().await?;
+            // Ok(vdf::from_str(&s)?)
+            todo!("need to add vdf")
         }
     };
 }

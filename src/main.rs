@@ -1,25 +1,51 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use steam_kit::vdf::VDF;
+use std::collections::HashMap;
 
 // use futures::{channel::oneshot::Receiver, SinkExt, StreamExt};
 // use steam_kit::connection::Request;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Test {
-    name: String,
-    age: String,
-    test: bool,
+struct appnews {
+    appid: u64,
+    newsitems: Vec<newsitem>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct newsitem {
+    gid: String,
+    title: String,
+    url: String,
+    is_external_url: bool,
+    author: String,
+    contents: String,
+    feedlabel: String,
+    date: u64,
+    feedname: String,
+    feed_type: u8,
+    appid: u64,
 }
 
 #[tokio::main]
 async fn main() {
-    steam_kit::request::get(&steam_kit::request::Config {
-        iface: "ISteamNews",
-        method: "GetNewsForApp",
-        version: "2",
-        query: Some(&[("appid", 440), ("count", 3)]),
-    })
-    .await
-    .unwrap();
+    let mut vdf = steam_kit::vdf!([
+        1,
+        true,
+    ]);
+
+    vdf.insert("test", true);
+
+    println!("{:?}", vdf["test"].to::<bool>());
+
+    // let news: appnews = steam_kit::request::get(&steam_kit::request::Config {
+    //     iface: "ISteamNews",
+    //     method: "GetNewsForApp",
+    //     version: "2",
+    //     query: Some(&[("appid", 440), ("count", 3)]),
+    // })
+    // .await
+    // .unwrap();
+
     // let (mut client, connection) = steam_kit::connect();
 
     // // spawn connection off somewhere else
