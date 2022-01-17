@@ -64,7 +64,7 @@ macro_rules! request {
                 req = req.query(query)
             }
 
-            let s: String = req.send().await?.text().await?;
+            let _s: String = req.send().await?.text().await?;
             // Ok(vdf::from_str(&s)?)
             todo!("need to add vdf")
         }

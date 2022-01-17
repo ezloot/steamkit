@@ -1,6 +1,6 @@
-use std::{ops::{Index, IndexMut}, fmt};
-
 use indexmap::IndexMap;
+use std::fmt;
+use std::ops::{Index, IndexMut};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum VDF {
@@ -13,37 +13,53 @@ impl VDF {
         Self::default()
     }
 
-    pub fn get<S: Into<String>>(&self, key: S) -> Option<&Self> {
-        let key = key.into();
+    pub fn get(&self, key: impl ToString) -> Option<&Self> {
         match self {
             Self::Value(_) => None,
-            Self::Keys(map) => map.get(&key),
+            Self::Keys(map) => {
+                let key = key.to_string();
+                map.get(&key)
+            },
         }
     }
 
-    pub fn get_mut<S: Into<String>>(&mut self, key: S) -> Option<&mut Self> {
-        let key = key.into();
+    pub fn get_mut(&mut self, key: impl ToString) -> Option<&mut Self> {
         match self {
             Self::Value(_) => None,
-            Self::Keys(map) => map.get_mut(&key),
+            Self::Keys(map) => {
+                let key = key.to_string();
+                map.get_mut(&key)
+            },
         }
     }
 
-    pub fn insert(&mut self, key: impl ToString, value: impl Into<Self>) {
+    pub fn insert(&mut self, key: impl ToString, value: impl Into<Self>) -> bool {
         match self {
-            Self::Value(_) => panic!("cannot insert into value"),
+            Self::Value(_) => false,
             Self::Keys(map) => {
                 let key = key.to_string();
                 let value = value.into();
                 map.insert(key, value);
-            },
+                true
+            }
         }
     }
 
     pub fn to<T: FromStr + 'static>(&self) -> Result<T, T::Err> {
         match self {
-            Self::Keys(_) => panic!("cannot access value from keys"),
             Self::Value(value) => T::from_str(value),
+            Self::Keys(_) => panic!("cannot access value from keys"),
+        }
+    }
+
+    pub fn set(&mut self, value: &str) -> bool {
+        match self {
+            Self::Value(s) => {
+                s.clear();
+                s.push_str(value);
+                true
+            },
+            Self::Keys(_) => false,
         }
     }
 }
@@ -70,11 +86,9 @@ impl<S: ToString> Index<S> for VDF {
     fn index(&self, index: S) -> &Self::Output {
         let index = index.to_string();
         match self {
-            VDF::Keys(map) => {
-                match map.get(&index) {
-                    Some(value) => value,
-                    None => panic!("invalid key"),
-                }
+            VDF::Keys(map) => match map.get(&index) {
+                Some(value) => value,
+                None => panic!("invalid key"),
             },
             VDF::Value(_) => panic!("cannot access key of value"),
         }
@@ -85,11 +99,9 @@ impl<S: ToString> IndexMut<S> for VDF {
     fn index_mut(&mut self, index: S) -> &mut Self::Output {
         let index = index.to_string();
         match self {
-            VDF::Keys(map) => {
-                match map.get_mut(&index) {
-                    Some(value) => value,
-                    None => panic!("invalid key"),
-                }
+            VDF::Keys(map) => match map.get_mut(&index) {
+                Some(value) => value,
+                None => panic!("invalid key"),
             },
             VDF::Value(_) => panic!("cannot access key of value"),
         }
@@ -199,10 +211,16 @@ macro_rules! vdf {
     };
 }
 
+// Replicates serde_json macro from https://docs.serde.rs/src/serde_json/macros.rs.html
 #[macro_export(local_inner_macros)]
 #[doc(hidden)]
 macro_rules! vdf_internal {
-    // Arrays:
+    //////////////////////////////////////////////////////////////////////////
+    // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
+    // of the elements.
+    //
+    // Must be invoked as: vdf_internal!(@array [] $($tt)*)
+    //////////////////////////////////////////////////////////////////////////
 
     // Done with trailing comma.
     (@array [$($elems:expr,)*]) => {
@@ -231,7 +249,7 @@ macro_rules! vdf_internal {
 
     // Next element is a map.
     (@array [$($elems:expr,)*] {$($map:tt)*} $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* vdf_internal!({$($map)*})] $($rest)*)
+        vdf_internal!(@array [$($elems,)* vdf_internal!({$($map)*})] $($rest)*)
     };
 
     // Next element is an expression followed by comma.
@@ -254,26 +272,18 @@ macro_rules! vdf_internal {
         vdf_unexpected!($unexpected)
     };
 
-    // Objects:
+    //////////////////////////////////////////////////////////////////////////
+    // TT muncher for parsing the inside of an object {...}. Each entry is
+    // inserted into the given map variable.
+    //
+    // Must be invoked as: vdf_internal!(@map $map () ($($tt)*) ($($tt)*))
+    //
+    // We require two copies of the input tokens so that we can match on one
+    // copy and trigger errors on the other copy.
+    //////////////////////////////////////////////////////////////////////////
 
     // Done.
     (@map $map:ident () () ()) => {};
-
-    // // Insert the current entry followed by trailing comma.
-    // (@object $object:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
-    //     let _ = $object.insert(($($key)+).into(), $value);
-    //     json_internal!(@object $object () ($($rest)*) ($($rest)*));
-    // };
-
-    // // Current entry followed by unexpected token.
-    // (@object $object:ident [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
-    //     json_unexpected!($unexpected);
-    // };
-
-    // // Insert the last entry without trailing comma.
-    // (@object $object:ident [$($key:tt)+] ($value:expr)) => {
-    //     let _ = $object.insert(($($key)+).into(), $value);
-    // };
 
     // Insert the current entry followed by trailing comma.
     (@map $map:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
@@ -281,36 +291,80 @@ macro_rules! vdf_internal {
         vdf_internal!(@map $map () ($($rest)*) ($($rest)*));
     };
 
+    // Current entry followed by unexpected token.
+    (@map $map:ident [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
+        vdf_unexpected!($unexpected);
+    };
+
     // Insert the last entry without trailing comma.
     (@map $map:ident [$($key:tt)+] ($value:expr)) => {
         let _ = $map.insert(($($key)+).to_string(), $value);
     };
 
-    
-    (@map $map:ident [$($key:tt)+] (: false , $($rest:tt)*) $copy:tt) => {
-        vdf_internal!(@map $map [$($key)+] (vdf_internal!(false)) $($rest)*);
-    };
-
-    (@map $map:ident [$($key:tt)+] (: true , $($rest:tt)*) $copy:tt) => {
+    // Next value is `true`.
+    (@map $map:ident ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
         vdf_internal!(@map $map [$($key)+] (vdf_internal!(true)) $($rest)*);
     };
 
+    // Next value is `false`.
+    (@map $map:ident ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
+        vdf_internal!(@map $map [$($key)+] (vdf_internal!(false)) $($rest)*);
+    };
 
+    // Next value is an array.
+    (@map $map:ident ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
+        vdf_internal!(@map $map [$($key)+] (vdf_internal!([$($array)*])) $($rest)*);
+    };
+
+    // Next value is a map.
+    (@map $map:ident ($($key:tt)+) (: {$($map_inner:tt)*} $($rest:tt)*) $copy:tt) => {
+        vdf_internal!(@map $map [$($key)+] (vdf_internal!({$($map_inner)*})) $($rest)*);
+    };
 
     // Next value is an expression followed by comma.
     (@map $map:ident ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
         vdf_internal!(@map $map [$($key)+] (vdf_internal!($value)) , $($rest)*);
     };
 
-
-
     // Last value is an expression with no trailing comma.
     (@map $map:ident ($($key:tt)+) (: $value:expr) $copy:tt) => {
         vdf_internal!(@map $map [$($key)+] (vdf_internal!($value)));
     };
 
+    // Missing value for last entry. Trigger a reasonable error message.
+    (@map $map:ident ($($key:tt)+) (:) $copy:tt) => {
+        // "unexpected end of macro invocation"
+        vdf_internal!();
+    };
+
+    // Missing colon and value for last entry. Trigger a reasonable error
+    // message.
+    (@map $map:ident ($($key:tt)+) () $copy:tt) => {
+        // "unexpected end of macro invocation"
+        vdf_internal!();
+    };
+
+    // Misplaced colon. Trigger a reasonable error message.
+    (@map $map:ident () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
+        // Takes no arguments so "no rules expected the token `:`".
+        vdf_unexpected!($colon);
+    };
+
+    // Found a comma inside a key. Trigger a reasonable error message.
+    (@map $map:ident ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
+        // Takes no arguments so "no rules expected the token `,`".
+        vdf_unexpected!($comma);
+    };
+
+    // Key is fully parenthesized. This avoids clippy double_parens false
+    // positives because the parenthesization may be necessary here.
     (@map $map:ident () (($key:expr) : $($rest:tt)*) $copy:tt) => {
         vdf_internal!(@map $map ($key) (: $($rest)*) (: $($rest)*));
+    };
+
+    // Refuse to absorb colon token into key expression.
+    (@map $map:ident ($($key:tt)*) (: $($unexpected:tt)+) $copy:tt) => {
+        vdf_expect_expr_comma!($($unexpected)+);
     };
 
     // Munch a token into the current key.
@@ -318,7 +372,11 @@ macro_rules! vdf_internal {
         vdf_internal!(@map $map ($($key)* $tt) ($($rest)*) ($($rest)*));
     };
 
-    // Base:
+    //////////////////////////////////////////////////////////////////////////
+    // The main implementation.
+    //
+    // Must be invoked as: vdf_internal!($($json)+)
+    //////////////////////////////////////////////////////////////////////////
 
     (true) => {
         $crate::vdf::VDF::Value("1".into())
@@ -369,8 +427,6 @@ macro_rules! vdf_unexpected {
 
 #[macro_export]
 #[doc(hidden)]
-macro_rules! vdf_test {
-    ($($content:tt)*) => {
-        println!($($content)*);
-    };
+macro_rules! vdf_expect_expr_comma {
+    ($e:expr , $($tt:tt)*) => {};
 }
