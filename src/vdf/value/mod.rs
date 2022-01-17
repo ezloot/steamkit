@@ -3,40 +3,40 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum VDF {
-    Value(String),
-    Keys(IndexMap<String, VDF>),
+pub enum Value {
+    String(String),
+    Map(IndexMap<String, Value>),
 }
 
-impl VDF {
+impl Value {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn get(&self, key: impl ToString) -> Option<&Self> {
         match self {
-            Self::Value(_) => None,
-            Self::Keys(map) => {
+            Self::String(_) => None,
+            Self::Map(map) => {
                 let key = key.to_string();
                 map.get(&key)
-            },
+            }
         }
     }
 
     pub fn get_mut(&mut self, key: impl ToString) -> Option<&mut Self> {
         match self {
-            Self::Value(_) => None,
-            Self::Keys(map) => {
+            Self::String(_) => None,
+            Self::Map(map) => {
                 let key = key.to_string();
                 map.get_mut(&key)
-            },
+            }
         }
     }
 
     pub fn insert(&mut self, key: impl ToString, value: impl Into<Self>) -> bool {
         match self {
-            Self::Value(_) => false,
-            Self::Keys(map) => {
+            Self::String(_) => false,
+            Self::Map(map) => {
                 let key = key.to_string();
                 let value = value.into();
                 map.insert(key, value);
@@ -47,70 +47,70 @@ impl VDF {
 
     pub fn to<T: FromStr + 'static>(&self) -> Result<T, T::Err> {
         match self {
-            Self::Value(value) => T::from_str(value),
-            Self::Keys(_) => panic!("cannot access value from keys"),
+            Self::String(value) => T::from_str(value),
+            Self::Map(_) => panic!("cannot access value from keys"),
         }
     }
 
     pub fn set(&mut self, value: &str) -> bool {
         match self {
-            Self::Value(s) => {
+            Self::String(s) => {
                 s.clear();
                 s.push_str(value);
                 true
-            },
-            Self::Keys(_) => false,
+            }
+            Self::Map(_) => false,
         }
     }
 }
 
-impl Default for VDF {
+impl Default for Value {
     fn default() -> Self {
-        Self::Keys(IndexMap::new())
+        Self::Map(IndexMap::new())
     }
 }
 
-impl From<Vec<VDF>> for VDF {
+impl From<Vec<Value>> for Value {
     fn from(v: Vec<Self>) -> Self {
-        let mut vdf = Self::new();
-        for (i, value) in v.into_iter().enumerate() {
-            vdf.insert(i, value);
+        let mut value = Self::new();
+        for (i, entry) in v.into_iter().enumerate() {
+            value.insert(i, entry);
         }
-        vdf
+        value
     }
 }
 
-impl<S: ToString> Index<S> for VDF {
-    type Output = VDF;
+impl<S: ToString> Index<S> for Value {
+    type Output = Value;
 
     fn index(&self, index: S) -> &Self::Output {
         let index = index.to_string();
         match self {
-            VDF::Keys(map) => match map.get(&index) {
+            Self::Map(map) => match map.get(&index) {
                 Some(value) => value,
                 None => panic!("invalid key"),
             },
-            VDF::Value(_) => panic!("cannot access key of value"),
+            Self::String(_) => panic!("cannot access key of value"),
         }
     }
 }
 
-impl<S: ToString> IndexMut<S> for VDF {
+impl<S: ToString> IndexMut<S> for Value {
     fn index_mut(&mut self, index: S) -> &mut Self::Output {
         let index = index.to_string();
         match self {
-            VDF::Keys(map) => match map.get_mut(&index) {
+            Self::Map(map) => match map.get_mut(&index) {
                 Some(value) => value,
                 None => panic!("invalid key"),
             },
-            VDF::Value(_) => panic!("cannot access key of value"),
+            Self::String(_) => panic!("cannot access key of value"),
         }
     }
 }
 
-impl<S: ToString> From<S> for VDF {
+impl<S: ToString> From<S> for Value {
     fn from(s: S) -> Self {
-        Self::Value(s.to_string())
+        Self::String(s.to_string())
     }
 }
 
@@ -207,7 +207,7 @@ vdf_string!(usize);
 #[macro_export(local_inner_macros)]
 macro_rules! vdf {
     ($($json:tt)+) => {
-        vdf_internal!($($json)+)
+    vdf_internal!($($json)+)
     };
 }
 
@@ -379,35 +379,35 @@ macro_rules! vdf_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (true) => {
-        $crate::vdf::VDF::Value("1".into())
+        $crate::vdf::Value::String("1".into())
     };
 
     (false) => {
-        $crate::vdf::VDF::Value("0".into())
+        $crate::vdf::Value::String("0".into())
     };
 
     ([]) => {
-        $crate::vdf::VDF::new()
+        $crate::vdf::Value::new()
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::vdf::VDF::from(vdf_internal!(@array [] $($tt)+))
+        $crate::vdf::Value::from(vdf_internal!(@array [] $($tt)+))
     };
 
     ({}) => {
-        $crate::vdf::VDF::new()
+        $crate::vdf::Value::new()
     };
 
     ({ $($tt:tt)+ }) => {
         {
-            let mut vdf = $crate::vdf::VDF::new();
-            vdf_internal!(@map vdf () ($($tt)+) ($($tt)+));
-            vdf
+            let mut value = $crate::vdf::Value::new();
+            vdf_internal!(@map value () ($($tt)+) ($($tt)+));
+            value
         }
     };
 
     ($other:expr) => {
-        $crate::vdf::VDF::Value($other.to_string())
+        $crate::vdf::Value::String($other.to_string())
     };
 }
 
@@ -421,12 +421,12 @@ macro_rules! vdf_internal_vec {
 
 #[macro_export]
 #[doc(hidden)]
-macro_rules! vdf_unexpected {
+macro_rules! Value_unexpected {
     () => {};
 }
 
 #[macro_export]
 #[doc(hidden)]
-macro_rules! vdf_expect_expr_comma {
+macro_rules! Value_expect_expr_comma {
     ($e:expr , $($tt:tt)*) => {};
 }

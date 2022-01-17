@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use steam_kit::vdf::VDF;
+use steam_kit::vdf::Value;
 
 // use futures::{channel::oneshot::Receiver, SinkExt, StreamExt};
 // use steam_kit::connection::Request;
