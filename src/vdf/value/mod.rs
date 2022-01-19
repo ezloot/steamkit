@@ -182,27 +182,42 @@ macro_rules! vdf_string {
             }
         }
     };
+    ($ty:ident, $fmt:ident) => {
+        impl FromStr for $ty {
+            type Err = <$ty as std::str::FromStr>::Err;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                <$ty as std::str::FromStr>::from_str(s)
+            }
+        }
+
+        impl ToString for $ty {
+            fn to_string(&self) -> String {
+                let mut buffer = $fmt::Buffer::new();
+                buffer.format(*self).to_owned()
+            }
+        }
+    };
 }
 
 vdf_string!(String);
 vdf_string!(char);
 // floats:
-vdf_string!(f32);
-vdf_string!(f64);
+vdf_string!(f32, ryu);
+vdf_string!(f64, ryu);
 // signed integers:
-vdf_string!(i8);
-vdf_string!(i16);
-vdf_string!(i32);
-vdf_string!(i64);
-vdf_string!(i128);
-vdf_string!(isize);
+vdf_string!(i8, itoa);
+vdf_string!(i16, itoa);
+vdf_string!(i32, itoa);
+vdf_string!(i64, itoa);
+vdf_string!(i128, itoa);
+vdf_string!(isize, itoa);
 // unsigned integers:
-vdf_string!(u8);
-vdf_string!(u16);
-vdf_string!(u32);
-vdf_string!(u64);
-vdf_string!(u128);
-vdf_string!(usize);
+vdf_string!(u8, itoa);
+vdf_string!(u16, itoa);
+vdf_string!(u32, itoa);
+vdf_string!(u64, itoa);
+vdf_string!(u128, itoa);
+vdf_string!(usize, itoa);
 
 #[macro_export(local_inner_macros)]
 macro_rules! vdf {
