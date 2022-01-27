@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-use thiserror::Error;
+use indexmap::IndexMap;
 
 #[derive(Debug)]
 pub enum Token {
@@ -22,21 +22,27 @@ pub enum Token {
 
 #[derive(Debug)]
 pub struct Tokens {
-    data: Vec<Token>,
+    pub tokens: Vec<Token>,
 }
 
-#[derive(Debug, Error)]
-pub enum TokenError {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     #[error("unexpected end of file")]
     EndOfFile,
     #[error("bad escape sequence: {0}")]
     BadEscape(char),
     #[error("unclosed quote string")]
     UnclosedQuote,
+    #[error("syntax error caused by: {0}")]
+    Syntax(char),
 }
 
 impl Tokens {
-    pub fn new<S: Into<String>>(s: S) -> Result<Self, TokenError> {
+    pub fn new() -> Self {
+        Self { tokens: Vec::new() }
+    }
+
+    pub fn parse<S: Into<String>>(s: S) -> Result<Self, Error> {
         let bytes = s.into();
         let mut chars = bytes.chars().peekable();
         let mut tokens = vec![];
@@ -56,18 +62,16 @@ impl Tokens {
                 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => Self::use_string(&mut chars)?,
                 '"' => Self::use_quoted_string(&mut chars)?,
                 '/' => Self::use_comment(&mut chars)?,
-                _ => panic!("test: {:?}", chr),
+                _ => return Err(Error::Syntax(chr)),
             };
 
             tokens.push(token);
         }
 
-        println!("tokens: {:?}", tokens);
-
-        Ok(Self { data: vec![] })
+        Ok(Self { tokens })
     }
 
-    fn use_new_line(chars: &mut Peekable<Chars>) -> Result<Token, TokenError> {
+    fn use_new_line(chars: &mut Peekable<Chars>) -> Result<Token, Error> {
         let mut s = String::new();
 
         for c in ['\r', '\n'] {
@@ -80,7 +84,7 @@ impl Tokens {
         Ok(Token::NewLine(s))
     }
 
-    fn use_whitespace(chars: &mut Peekable<Chars>) -> Result<Token, TokenError> {
+    fn use_whitespace(chars: &mut Peekable<Chars>) -> Result<Token, Error> {
         let mut s = String::new();
 
         while let Some(&chr) = chars.peek() {
@@ -95,7 +99,7 @@ impl Tokens {
         Ok(Token::Whitespace(s))
     }
 
-    pub fn use_string(chars: &mut Peekable<Chars>) -> Result<Token, TokenError> {
+    fn use_string(chars: &mut Peekable<Chars>) -> Result<Token, Error> {
         let mut s = String::new();
 
         while let Some(&chr) = chars.peek() {
@@ -111,7 +115,7 @@ impl Tokens {
         Ok(Token::String(s))
     }
 
-    pub fn use_comment(chars: &mut Peekable<Chars>) -> Result<Token, TokenError> {
+    fn use_comment(chars: &mut Peekable<Chars>) -> Result<Token, Error> {
         let mut s = String::new();
 
         while let Some(&chr) = chars.peek() {
@@ -129,7 +133,7 @@ impl Tokens {
         Ok(Token::Comment(s))
     }
 
-    pub fn use_quoted_string(chars: &mut Peekable<Chars>) -> Result<Token, TokenError> {
+    fn use_quoted_string(chars: &mut Peekable<Chars>) -> Result<Token, Error> {
         let mut s = String::new();
 
         // skip the opening quote
@@ -143,13 +147,13 @@ impl Tokens {
                         chars.next();
 
                         // get escaped char
-                        let escaped = chars.next().ok_or(TokenError::UnclosedQuote)?;
+                        let escaped = chars.next().ok_or(Error::UnclosedQuote)?;
                         match escaped {
                             '\\' => s.push('\\'),
                             'n' => s.push('\n'),
                             't' => s.push('\t'),
                             '"' => s.push('"'),
-                            chr => return Err(TokenError::BadEscape(chr)),
+                            chr => return Err(Error::BadEscape(chr)),
                         }
                     }
                     '"' => break,
@@ -159,7 +163,7 @@ impl Tokens {
                     }
                 }
             } else {
-                return Err(TokenError::UnclosedQuote);
+                return Err(Error::UnclosedQuote);
             }
         }
 
@@ -170,8 +174,52 @@ impl Tokens {
     }
 }
 
-struct KeyValues {
-    tokens: Tokens,
+#[derive(Debug)]
+enum Node {
+    Entry {
+        key: Token,
+        value: Token,
+        conditional: Option<Token>,
+    },
+    Array(Vec<Node>),
+    Map(IndexMap<String, Node>)
 }
 
-impl KeyValues {}
+impl Node {
+    pub fn clear(&mut self) {
+        match self {
+            Node::Array(nodes) => nodes.clear(),
+            Node::Map(nodes) => nodes.clear(),
+            _ => (),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct KeyValues {
+    tokens: Tokens,
+    root: Node,
+}
+
+impl KeyValues {
+    pub fn new() -> Self {
+        Self {
+            tokens: Tokens::new(),
+            root: Node::Map(IndexMap::new()),
+        }
+    }
+
+    pub fn parse<S: Into<String>>(s: S) -> Result<Self, Error> {
+        let tokens = Tokens::parse(s)?;
+        let root = Node::Map(IndexMap::new());
+        let mut kv = Self { tokens, root };
+        kv.decode_tokens()?;
+        Ok(kv)
+    }
+
+    pub fn decode_tokens(&mut self) -> Result<(), Error> {
+        self.root.clear();
+
+        Ok(())
+    }
+}
