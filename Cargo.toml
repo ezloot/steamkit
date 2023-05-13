@@ -5,8 +5,8 @@ authors = ["JAD3N <me@jaden.bio>"]
 edition = "2018"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/jad3n/steam-kit"
-documentation = "https://docs.rs/steam-kit/0.1.2"
+repository = "https://github.com/jad3n/steamkit"
+documentation = "https://docs.rs/steamkit/0.1.2"
 description = """
 This crate is designed to be a bunch of tools for interacting with the Steam API.
 """
