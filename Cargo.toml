@@ -1,6 +1,6 @@
 [package]
-name = "steam-kit"
-version = "0.1.2"
+name = "steamkit"
+version = "0.1.0"
 authors = ["JAD3N <me@jaden.bio>"]
 edition = "2018"
 license = "MIT"
