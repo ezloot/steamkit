@@ -7,6 +7,9 @@ license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/jad3n/steamkit"
 documentation = "https://docs.rs/steamkit-vdf/0.1.0"
+description = """
+This crate is designed to be a bunch of tools for interacting with the Steam API.
+"""
 
 [dependencies]
 thiserror = "1.0"
