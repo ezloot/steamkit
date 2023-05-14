@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    # "steamkit",
+    "steamkit",
     "steamkit-vdf",
     "steamkit-protos",
     "steamkit-client",
