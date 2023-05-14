@@ -1,0 +1,30 @@
+[package]
+name = "steamkit"
+version = "0.1.0"
+authors = ["JAD3N <me@jaden.bio>"]
+edition = "2021"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/jad3n/steamkit"
+documentation = "https://docs.rs/steamkit/0.1.2"
+description = """
+This crate is designed to be a bunch of tools for interacting with the Steam API.
+"""
+
+[dependencies]
+# steamkit
+steamkit-vdf = { path = "../steamkit-vdf", version = "0.1.0" }
+
+# other
+num_enum = "0.5"
+thiserror = "1.0"
+regex = "1.5"
+lazy_static = "1.4"
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_urlencoded = "0.7"
+indexmap = "1.8"
+ryu = "1.0"
+itoa = "1.0"

@@ -1,0 +1,13 @@
+[package]
+name = "steamkit-client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# steamkit
+steamkit-vdf = { path = "../steamkit-vdf", version = "0.1.0" }
+steamkit-protos = { path = "../steamkit-protos", version = "0.1.0" }
+
+# other
