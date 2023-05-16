@@ -1,18 +1,18 @@
 [package]
 name = "steamkit"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["JAD3N <me@jaden.bio>"]
 license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/jad3n/steamkit"
-documentation = "https://docs.rs/steamkit/0.1.0"
+documentation = "https://docs.rs/steamkit/0.2.0"
 description = """
 This crate is designed to be a bunch of tools for interacting with the Steam API.
 """
 
 [dependencies]
 # steamkit
-steamkit-vdf = { path = "../steamkit-vdf", version = "0.1.0" }
-steamkit-protos = { path = "../steamkit-protos", version = "0.1.0" }
-steamkit-client = { path = "../steamkit-client", version = "0.1.0" }
+steamkit-vdf = { path = "../steamkit-vdf", version = "0.2.0" }
+steamkit-protos = { path = "../steamkit-protos", version = "0.2.0" }
+steamkit-client = { path = "../steamkit-client", version = "0.2.0" }

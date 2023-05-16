@@ -9,12 +9,12 @@ pub use node::*;
 pub use token::*;
 
 #[derive(Debug)]
-pub struct VDF {
+pub struct Vdf {
     tokens: Tokens,
     root: Nodes,
 }
 
-impl VDF {
+impl Vdf {
     pub fn new() -> Self {
         Self {
             tokens: Tokens::default(),

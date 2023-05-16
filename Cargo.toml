@@ -4,5 +4,6 @@ members = [
     "steamkit-vdf",
     "steamkit-protos",
     "steamkit-client",
+    "steamkit-util",
 ]
 resolver = "2"

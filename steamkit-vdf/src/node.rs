@@ -19,7 +19,7 @@ impl NodeValue {
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Map(_) => None,
-            Self::String(s) => Some(&s),
+            Self::String(s) => Some(s),
         }
     }
 }
@@ -40,12 +40,12 @@ impl TryFrom<&Tokens> for Nodes {
 
 impl Nodes {
     pub fn lookup(&self, full_path: &str) -> Result<Option<&Node>> {
-        let (path, rest) = full_path.split_once(".").unwrap_or((full_path, ""));
+        let (path, rest) = full_path.split_once('.').unwrap_or((full_path, ""));
         let Some(node) =self.map.get(path) else {
             return Ok(None);
         };
 
-        if rest != "" {
+        if !rest.is_empty() {
             match &node.value {
                 NodeValue::Map(nodes) => nodes.lookup(rest),
                 _ => Err(Error::Lookup),
@@ -174,7 +174,7 @@ impl Nodes {
         let mut condition = None;
 
         if Self::read_whitespace(tokens, true)? {
-            value = Self::read_string(tokens).map(|s| NodeValue::String(s)).ok();
+            value = Self::read_string(tokens).map(NodeValue::String).ok();
         }
 
         // get final value
