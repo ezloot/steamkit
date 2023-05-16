@@ -1,5 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
+use indexmap::IndexMap;
+use parse_int::parse;
 use regex::Regex;
 
 fn protobufs() {
@@ -41,7 +43,8 @@ fn resources() {
     let enum_regex =
         Regex::new(r"enum\s+(?<name>[a-zA-Z]+)[\s\n][^{]*\{(?<inner>[^}]+)\}").unwrap();
     let variant_regex =
-        Regex::new(r"(?<key>[a-zA-Z0-9_]+)\s*=\s*\s*(?<value>[a-zA-Z0-9_]+)\s*;").unwrap();
+        Regex::new(r"(?<key>[a-zA-Z0-9_]+)\s*=\s*\s*(?<value>[a-zA-Z0-9_|\s]+)\s*;(?<comment>.*)")
+            .unwrap();
     let mut data = String::new();
 
     for path in paths {
@@ -49,19 +52,66 @@ fn resources() {
         for capture in enum_regex.captures_iter(&res) {
             let name = &capture["name"];
             let inner = &capture["inner"];
+            let mut map = IndexMap::<String, (u32, Option<String>)>::new();
 
-            let variants = variant_regex.captures_iter(inner).collect::<Vec<_>>();
-            if !variants.is_empty() {
-                data.push_str(&format!("enum {name} {{\n"));
+            for capture in variant_regex.captures_iter(inner) {
+                let key = &capture["key"];
+                let value = &capture["value"].trim();
 
-                for capture in variants {
-                    let key = &capture["key"];
-                    let value = &capture["value"];
+                let comment = &capture["comment"].trim();
+                let comment = if !comment.is_empty() {
+                    Some(comment.to_string())
+                } else {
+                    None
+                };
 
-                    data.push_str(&format!("    {key} = {value},\n"));
+                let num = match parse::<u32>(&value.trim()) {
+                    Ok(num) => num,
+                    Err(_) => {
+                        let mut num = 0;
+                        for x in value.split("|") {
+                            num |= map.get(x.trim()).unwrap().0;
+                        }
+                        num
+                    }
+                };
+
+                map.insert(key.to_owned(), (num, comment));
+            }
+
+            if !map.is_empty() {
+                // create enum
+                data.push_str(&format!(
+                    "#[allow(non_camel_case_types)]\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\npub enum {name} {{\n"
+                ));
+                for (key, (_, comment)) in map.iter() {
+                    data.push_str(&format!("    {key},"));
+
+                    if let Some(comment) = comment {
+                        data.push_str(&format!(" // {}", comment));
+                    }
+
+                    data.push('\n');
                 }
+                data.push_str("}\n\n");
 
-                data.push_str("}\n");
+                // from enum impl
+                data.push_str(&format!("impl From<{name}> for u32 {{\n    fn from(value: {name}) -> Self {{\n        match value {{\n"));
+                for (key, (value, _)) in map.iter() {
+                    data.push_str(&format!("            {name}::{key} => {value},\n"));
+                }
+                data.push_str("        }\n    }\n}\n\n");
+
+                // from u32 impl
+                let mut used = vec![]; 
+                data.push_str(&format!("impl From<u32> for {name} {{\n    fn from(value: u32) -> Self {{\n        match value {{\n"));
+                for (key, (value, _)) in map.iter().rev() {
+                    if !used.contains(&value) {
+                        data.push_str(&format!("            {value} => {name}::{key},\n"));
+                        used.push(value);
+                    }
+                }
+                data.push_str("            _ => panic!(),\n        }\n    }\n}\n\n");
             }
         }
     }
@@ -77,5 +127,5 @@ fn resources() {
 
 fn main() {
     resources();
-    // protobufs();
+    protobufs();
 }
