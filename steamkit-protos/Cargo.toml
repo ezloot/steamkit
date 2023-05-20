@@ -17,9 +17,6 @@ protobuf = "3.2"
 [build-dependencies]
 protobuf-codegen = "3.2"
 protoc-bin-vendored = "3.0"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
-serde = { version = "1.0", features = ["derive"] }
-lazy_static = "1.0"
 regex = "1.0"
 parse_int = "0.6"
 indexmap = "1.9"

@@ -20,3 +20,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 - [ ] Create a crate that handles building protobufs using Rust's build process.
 - [ ] Create a crate that handles connection/protocol stuff?
 - [ ] Create a crate that wraps common stuff.
+
+# Done
+
+* Add `serde` feature but only support deserialization for now.

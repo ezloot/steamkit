@@ -34,12 +34,6 @@ enum EClientNotificationType {
 	k_EClientNotificationType_TradeOffer = 29;
 	k_EClientNotificationType_AsyncGame = 30;
 	k_EClientNotificationType_General = 31;
-	k_EClientNotificationType_HelpRequest = 32;
-	k_EClientNotificationType_OverlaySplashScreen = 33;
-	k_EClientNotificationType_BroadcastAvailableToWatch = 34;
-	k_EClientNotificationType_TimedTrialRemaining = 35;
-	k_EClientNotificationType_LoginRefresh = 36;
-	k_EClientNotificationType_MajorSale = 37;
 }
 
 enum ESystemUpdateNotificationType {
@@ -179,22 +173,4 @@ message CClientNotificationPeerContentUpload {
 
 message CClientNotificationCannotReadControllerGuideButton {
 	optional int32 controller_index = 1;
-}
-
-message CClientNotificationOverlaySplashScreen {
-}
-
-message CClientNotificationBroadcastAvailableToWatch {
-	optional int32 broadcast_permission = 1;
-}
-
-message CClientNotificationTimedTrialRemaining {
-	optional uint32 appid = 1;
-	optional string icon = 2;
-	optional bool offline = 3;
-	optional uint32 allowed_seconds = 4;
-	optional uint32 played_seconds = 5;
-}
-
-message CClientNotificationLoginRefresh {
 }

@@ -273,7 +273,6 @@ message CMsgSystemPerfLimits {
 	repeated .ESplitScalingFilter split_scaling_filters_available = 26;
 	repeated .ESplitScalingScaler split_scaling_scalers_available = 27;
 	optional bool is_hdr_supported = 28;
-	optional int32 display_refresh_manual_hz_oc_max = 29;
 }
 
 message CMsgSystemPerfSettingsGlobal {
@@ -286,14 +285,13 @@ message CMsgSystemPerfSettingsGlobal {
 	optional bool is_advanced_settings_enabled = 7;
 	optional bool allow_external_display_refresh_control = 8;
 	optional bool is_hdr_enabled = 9;
+	optional bool force_hdr_10pq_output_debug = 11;
 	optional .EHDRToneMapOperator hdr_on_sdr_tonemap_operator = 12 [default = k_EHDRToneMapOperator_Invalid];
 	optional bool is_hdr_debug_heatmap_enabled = 13;
+	optional bool debug_force_hdr_support = 14;
 	optional bool force_hdr_wide_gammut_for_sdr = 15 [default = true];
 	optional bool allow_experimental_hdr = 16;
 	optional float sdr_to_hdr_brightness = 17;
-	optional bool debug_force_hdr_support = 18;
-	optional bool force_hdr_10pq_output_debug = 19;
-	optional bool is_display_oc_enabled = 20;
 }
 
 message CMsgSystemPerfSettingsPerApp {
@@ -362,7 +360,6 @@ message CMsgSystemPerfState {
 
 message CMsgSystemPerfUpdateSettings {
 	optional uint64 gameid = 1;
-	optional bool skip_storage_update = 4;
 
 	oneof update {
 		bool reset_to_default = 2;
@@ -505,6 +502,8 @@ message CMsgSystemManagerSettings {
 	optional bool idle_suspend_supressed = 5;
 	optional bool is_adaptive_brightness_available = 6;
 	optional bool display_adaptive_brightness_enabled = 7;
+	optional bool is_display_colorprofile_available = 8;
+	optional .EColorProfile display_colorprofile = 9 [default = k_EColorProfile_Invalid];
 	optional bool display_nightmode_enabled = 10;
 	optional float display_nightmode_tintstrength = 11;
 	optional float display_nightmode_maxhue = 12;
@@ -518,15 +517,12 @@ message CMsgSystemManagerSettings {
 	optional bool display_diagnostics_enabled = 20;
 	optional float als_lux_latest = 21;
 	optional float als_lux_median = 22;
-	optional float display_backlight_raw = 23;
+	optional float display_brightness_linear = 23;
 	optional float display_brightness_adaptivemin = 24;
 	optional float display_brightness_adaptivemax = 25;
 	optional bool is_wifi_powersave_enabled = 26;
 	optional bool is_fan_control_available = 27;
 	optional .ESystemFanControlMode fan_control_mode = 28 [default = k_SystemFanControlMode_Invalid];
-	optional bool is_display_brightness_available = 29;
-	optional bool is_display_colormanagement_available = 31;
-	optional float display_colorgamut = 32;
 }
 
 message CMsgSelectOSBranchParams {

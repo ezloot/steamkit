@@ -220,7 +220,7 @@ impl Id {
         let universe = self.universe as u64;
         let type_ = self.type_ as u64;
         let instance = self.instance as u64;
-        let account = self.account as u64;
+        let account = self.account;
 
         (universe << 56) | (type_ << 52) | (instance << 32) | account
     }
@@ -262,7 +262,7 @@ impl Id {
             "[{}:{}:{}{}]",
             chr,
             self.universe as u64,
-            self.account as u64,
+            self.account,
             if use_instance {
                 format!(":{}", self.instance as u64)
             } else {

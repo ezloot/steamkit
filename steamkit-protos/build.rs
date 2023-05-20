@@ -41,9 +41,9 @@ fn resources() {
         });
 
     let enum_regex =
-        Regex::new(r"enum\s+(?<name>[a-zA-Z]+)[\s\n][^{]*\{(?<inner>[^}]+)\}").unwrap();
+        Regex::new(r"(?i)enum\s+(?P<name>[a-z]+)[\s\n][^{]*\{(?P<inner>[^}]+)\}").unwrap();
     let variant_regex =
-        Regex::new(r"(?<key>[a-zA-Z0-9_]+)\s*=\s*\s*(?<value>[a-zA-Z0-9_|\s]+)\s*;(?<comment>.*)")
+        Regex::new(r"(?i)(?P<key>[a-z0-9_]+)\s*=\s*\s*(?P<value>[a-z0-9_|\s]+)\s*;(?P<comment>.*)")
             .unwrap();
     let mut data = String::new();
 
@@ -65,11 +65,11 @@ fn resources() {
                     None
                 };
 
-                let num = match parse::<u32>(&value.trim()) {
+                let num = match parse::<u32>(value.trim()) {
                     Ok(num) => num,
                     Err(_) => {
                         let mut num = 0;
-                        for x in value.split("|") {
+                        for x in value.split('|') {
                             num |= map.get(x.trim()).unwrap().0;
                         }
                         num
@@ -103,7 +103,7 @@ fn resources() {
                 data.push_str("        }\n    }\n}\n\n");
 
                 // from u32 impl
-                let mut used = vec![]; 
+                let mut used = vec![];
                 data.push_str(&format!("impl From<u32> for {name} {{\n    fn from(value: u32) -> Self {{\n        match value {{\n"));
                 for (key, (value, _)) in map.iter().rev() {
                     if !used.contains(&value) {

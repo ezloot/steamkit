@@ -1,4 +1,11 @@
-use std::{collections::HashMap, convert::TryFrom, iter::Peekable, slice::Iter};
+#[cfg(feature = "serde")]
+mod de;
+
+#[cfg(feature = "serde")]
+pub use de::*;
+use indexmap::IndexMap;
+
+use std::{convert::TryFrom, iter::Peekable, slice::Iter};
 
 use crate::{Error, Result, Token, Tokens};
 
@@ -26,7 +33,7 @@ impl NodeValue {
 
 #[derive(Debug, Clone, Default)]
 pub struct Nodes {
-    map: HashMap<String, Node>,
+    pub map: IndexMap<String, Node>,
 }
 
 impl TryFrom<&Tokens> for Nodes {
@@ -56,7 +63,7 @@ impl Nodes {
     }
 
     fn read_root(tokens: &mut Peekable<Iter<Token>>) -> Result<Nodes> {
-        let mut map = HashMap::new();
+        let mut map = IndexMap::new();
 
         loop {
             Self::read_comment(tokens);
@@ -135,7 +142,7 @@ impl Nodes {
             token => return Err(Error::UnexpectedToken(token.to_owned())),
         }
 
-        let mut map = HashMap::new();
+        let mut map = IndexMap::new();
 
         loop {
             Self::read_comment(tokens);
@@ -155,14 +162,10 @@ impl Nodes {
     }
 
     fn read_comment(tokens: &mut Peekable<Iter<Token>>) {
-        loop {
-            match tokens.peek() {
-                Some(Token::Whitespace(_)) | Some(Token::Comment(_)) | Some(Token::NewLine(_)) => {
-                    tokens.next();
-                    continue;
-                }
-                Some(_) | None => break,
-            }
+        while let Some(Token::Whitespace(_)) | Some(Token::Comment(_)) | Some(Token::NewLine(_)) =
+            tokens.peek()
+        {
+            tokens.next();
         }
     }
 

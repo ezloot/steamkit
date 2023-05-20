@@ -17,3 +17,18 @@ steamkit-vdf = { path = "../steamkit-vdf", version = "0.2.0" }
 steamkit-protos = { path = "../steamkit-protos", version = "0.2.0" }
 
 # other
+thiserror = "1.0"
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["gzip"] }
+tokio = { version = "1.28", optional = true, features = ["rt", "net"] }
+async-std = { version = "1.12", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.28", features = ["full"] }
+
+[features]
+default = ["tokio"]
+async-std = ["dep:async-std"]
+tokio = ["dep:tokio"]

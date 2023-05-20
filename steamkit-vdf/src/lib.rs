@@ -8,20 +8,13 @@ pub use error::*;
 pub use node::*;
 pub use token::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Vdf {
     tokens: Tokens,
     root: Nodes,
 }
 
 impl Vdf {
-    pub fn new() -> Self {
-        Self {
-            tokens: Tokens::default(),
-            root: Nodes::default(),
-        }
-    }
-
     pub fn root(&self) -> &Nodes {
         &self.root
     }

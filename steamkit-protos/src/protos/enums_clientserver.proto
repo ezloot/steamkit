@@ -973,6 +973,7 @@ enum EMsg {
 	k_EMsgClientP2PConnectionFailInfo = 5435;
 	k_EMsgClientGetDepotDecryptionKey = 5438;
 	k_EMsgClientGetDepotDecryptionKeyResponse = 5439;
+	k_EMsgGSPerformHardwareSurvey = 5440;
 	k_EMsgClientEnableTestLicense = 5443;
 	k_EMsgClientEnableTestLicenseResponse = 5444;
 	k_EMsgClientDisableTestLicense = 5445;
@@ -1454,6 +1455,7 @@ enum EMsg {
 	k_EMsgClientBroadcastInit = 9700;
 	k_EMsgClientBroadcastFrames = 9701;
 	k_EMsgClientBroadcastDisconnect = 9702;
+	k_EMsgClientBroadcastScreenshot = 9703;
 	k_EMsgClientBroadcastUploadConfig = 9704;
 	k_EMsgBaseClient3 = 9800;
 	k_EMsgClientVoiceCallPreAuthorize = 9800;
@@ -1485,12 +1487,6 @@ enum EMsg {
 	k_EMsgChatServerGetPendingNotificationCountResponse = 12001;
 	k_EMsgBaseSecretServer = 12100;
 	k_EMsgServerSecretChanged = 12100;
-	k_EMsgBaseWG = 12200;
-	k_EMsgWGConnectionProtocolError = 12200;
-	k_EMsgWGConnectionValidateUserToken = 12201;
-	k_EMsgWGConnectionValidateUserTokenResponse = 12202;
-	k_EMsgWGConnectionLegacyWGRequest = 12203;
-	k_EMsgWGConnectionLegacyWGResponse = 12204;
 }
 
 enum EClientPersonaStateFlag {
