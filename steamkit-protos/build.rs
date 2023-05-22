@@ -1,7 +1,11 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, ops::Not, path::PathBuf};
 
-use indexmap::IndexMap;
+use heck::{ToShoutySnakeCase, ToUpperCamelCase};
+use itertools::Itertools;
+use lazy_static::lazy_static;
 use parse_int::parse;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned, IdentFragment, ToTokens, TokenStreamExt};
 use regex::Regex;
 
 fn protobufs() {
@@ -26,6 +30,145 @@ fn protobufs() {
         .run_from_script();
 }
 
+#[derive(Debug, Clone)]
+struct Enum {
+    name: String,
+    variants: Vec<EnumVariant>,
+}
+
+impl ToTokens for Enum {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let name = syn::parse_str::<Ident>(&self.name).unwrap();
+        let variants = &self.variants;
+
+        tokens.append_all(quote! {
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, opaque_typedef_macros::OpaqueTypedef)]
+            pub struct #name(pub u32);
+
+            impl #name {
+                #(#variants)*
+            }
+
+            impl const ::std::ops::BitOr for #name {
+                type Output = Self;
+
+                fn bitor(self, rhs: Self) -> Self::Output {
+                    Self(self.0 | rhs.0)
+                }
+            }
+        });
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EnumVariant {
+    key: String,
+    value: EnumVariantValue,
+    comment: Option<String>,
+    deprecated: bool,
+}
+
+impl ToTokens for EnumVariant {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let key = syn::parse_str::<Ident>(&self.key).unwrap();
+        let value = &self.value;
+        let deprecated = &self.deprecated.then(|| quote!(#[deprecated]));
+        // let comment = &self.comment.map(|comment| {});
+
+        tokens.append_all(quote! {
+            #deprecated
+            pub const #key: Self = #value;
+        });
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum EnumVariantValue {
+    Int(u32),
+    Reference(String),
+    Union(Vec<Self>),
+}
+
+impl ToTokens for EnumVariantValue {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            EnumVariantValue::Int(int) => tokens.append_all(quote!(Self(#int))),
+            EnumVariantValue::Reference(key) => {
+                let key = syn::parse_str::<Ident>(key).unwrap();
+                tokens.append_all(quote!(Self::#key));
+            }
+            EnumVariantValue::Union(vec) => {
+                tokens.append_all(Itertools::intersperse(
+                    vec.iter().map(|value| value.into_token_stream()),
+                    quote!(|),
+                ));
+            }
+        }
+    }
+}
+
+lazy_static! {
+    static ref ENUM_REGEX: Regex =
+        Regex::new(r"(?i)enum\s+(?P<name>[a-z]+)[\s\n][^{]*\{(?P<inner>[^}]+)\}").unwrap();
+    static ref VARIANT_REGEX: Regex =
+        Regex::new(r"(?i)(?P<key>[a-z0-9_]+)\s*=\s*\s*(?P<value>[a-z0-9_|\s]+)\s*;(?P<comment>.*)")
+            .unwrap();
+}
+
+fn parse_enums(data: &str) -> Vec<Enum> {
+    let mut enums = vec![];
+    for capture in ENUM_REGEX.captures_iter(data) {
+        let name = capture["name"].to_upper_camel_case();
+        let mut variants = vec![];
+
+        for capture in VARIANT_REGEX.captures_iter(&capture["inner"]) {
+            let key = capture["key"].to_shouty_snake_case();
+
+            let value = capture["value"].trim();
+            let value = match parse::<u32>(value) {
+                Ok(int) => EnumVariantValue::Int(int),
+                Err(_) => EnumVariantValue::Union(
+                    value
+                        .split('|')
+                        .map(|key| EnumVariantValue::Reference(key.trim().to_shouty_snake_case()))
+                        .collect(),
+                ),
+            };
+
+            let comment = capture["comment"].trim();
+            let comment = comment.is_empty().not().then(|| comment.to_owned());
+
+            variants.push(EnumVariant {
+                key,
+                value,
+                deprecated: false,
+                comment,
+            });
+        }
+
+        let mut used_ids = vec![];
+        for variant in variants.iter_mut().rev() {
+            if let EnumVariantValue::Int(int) = variant.value {
+                if used_ids.contains(&int) {
+                    variant.deprecated = true;
+                }
+                used_ids.push(int);
+            }
+        }
+
+        let mut used_keys = vec![];
+        for variant in variants.iter_mut().rev() {
+            if used_keys.contains(&variant.key) {
+                variant.key = format!("{}_LEGACY", variant.key);
+            }
+            used_keys.push(variant.key.clone());
+        }
+
+        enums.push(Enum { name, variants });
+    }
+    enums
+}
+
 fn resources() {
     // get resources from source files
     let paths = fs::read_dir("src/resources")
@@ -40,80 +183,12 @@ fn resources() {
             None
         });
 
-    let enum_regex =
-        Regex::new(r"(?i)enum\s+(?P<name>[a-z]+)[\s\n][^{]*\{(?P<inner>[^}]+)\}").unwrap();
-    let variant_regex =
-        Regex::new(r"(?i)(?P<key>[a-z0-9_]+)\s*=\s*\s*(?P<value>[a-z0-9_|\s]+)\s*;(?P<comment>.*)")
-            .unwrap();
-    let mut data = String::new();
+    let mut tokens = TokenStream::new();
 
     for path in paths {
-        let res = fs::read_to_string(&path).expect("failed to read resource");
-        for capture in enum_regex.captures_iter(&res) {
-            let name = &capture["name"];
-            let inner = &capture["inner"];
-            let mut map = IndexMap::<String, (u32, Option<String>)>::new();
-
-            for capture in variant_regex.captures_iter(inner) {
-                let key = &capture["key"];
-                let value = &capture["value"].trim();
-
-                let comment = &capture["comment"].trim();
-                let comment = if !comment.is_empty() {
-                    Some(comment.to_string())
-                } else {
-                    None
-                };
-
-                let num = match parse::<u32>(value.trim()) {
-                    Ok(num) => num,
-                    Err(_) => {
-                        let mut num = 0;
-                        for x in value.split('|') {
-                            num |= map.get(x.trim()).unwrap().0;
-                        }
-                        num
-                    }
-                };
-
-                map.insert(key.to_owned(), (num, comment));
-            }
-
-            if !map.is_empty() {
-                // create enum
-                data.push_str(&format!(
-                    "#[allow(non_camel_case_types)]\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\npub enum {name} {{\n"
-                ));
-                for (key, (_, comment)) in map.iter() {
-                    data.push_str(&format!("    {key},"));
-
-                    if let Some(comment) = comment {
-                        data.push_str(&format!(" // {}", comment));
-                    }
-
-                    data.push('\n');
-                }
-                data.push_str("}\n\n");
-
-                // from enum impl
-                data.push_str(&format!("impl From<{name}> for u32 {{\n    fn from(value: {name}) -> Self {{\n        match value {{\n"));
-                for (key, (value, _)) in map.iter() {
-                    data.push_str(&format!("            {name}::{key} => {value},\n"));
-                }
-                data.push_str("        }\n    }\n}\n\n");
-
-                // from u32 impl
-                let mut used = vec![];
-                data.push_str(&format!("impl From<u32> for {name} {{\n    fn from(value: u32) -> Self {{\n        match value {{\n"));
-                for (key, (value, _)) in map.iter().rev() {
-                    if !used.contains(&value) {
-                        data.push_str(&format!("            {value} => {name}::{key},\n"));
-                        used.push(value);
-                    }
-                }
-                data.push_str("            _ => panic!(),\n        }\n    }\n}\n\n");
-            }
-        }
+        let data = fs::read_to_string(&path).expect("failed to read resource");
+        let enums = parse_enums(&data);
+        tokens.append_all(enums.iter());
     }
 
     // get resources output path
@@ -121,11 +196,13 @@ fn resources() {
     let mut res_path = PathBuf::from(cargo_out_dir);
     res_path.push("resources.rs");
 
+    let code = prettyplease::unparse(&syn::parse2(tokens).expect("bad code generation"));
+
     // write generated file
-    fs::write(res_path, data).unwrap();
+    fs::write(res_path, code).unwrap();
 }
 
 fn main() {
     resources();
-    protobufs();
+    // protobufs();
 }
