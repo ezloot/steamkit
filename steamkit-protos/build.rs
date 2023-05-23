@@ -4,8 +4,8 @@ use heck::{ToShoutySnakeCase, ToUpperCamelCase};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use parse_int::parse;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, IdentFragment, ToTokens, TokenStreamExt};
+use proc_macro2::{Ident, TokenStream};
+use quote::{quote, ToTokens, TokenStreamExt};
 use regex::Regex;
 
 fn protobufs() {
@@ -42,18 +42,86 @@ impl ToTokens for Enum {
         let variants = &self.variants;
 
         tokens.append_all(quote! {
-            #[derive(Debug, Clone, PartialEq, Eq, Hash, opaque_typedef_macros::OpaqueTypedef)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub struct #name(pub u32);
 
             impl #name {
                 #(#variants)*
             }
 
-            impl const ::std::ops::BitOr for #name {
+            impl From<#name> for u32 {
+                fn from(value: #name) -> Self {
+                    value.0
+                }
+            }
+
+            impl From<u32> for #name {
+                fn from(value: u32) -> Self {
+                    #name(value)
+                }
+            }
+
+            impl ::std::ops::BitOr for #name {
                 type Output = Self;
 
                 fn bitor(self, rhs: Self) -> Self::Output {
                     Self(self.0 | rhs.0)
+                }
+            }
+
+            impl ::std::ops::BitOrAssign for #name {
+                fn bitor_assign(&mut self, rhs: Self) {
+                    self.0 |= rhs.0;
+                }
+            }
+
+            impl ::std::ops::BitAnd for #name {
+                type Output = Self;
+
+                fn bitand(self, rhs: Self) -> Self::Output {
+                    Self(self.0 & rhs.0)
+                }
+            }
+
+            impl ::std::ops::BitAndAssign for #name {
+                fn bitand_assign(&mut self, rhs: Self) {
+                    self.0 &= rhs.0;
+                }
+            }
+
+            impl ::std::ops::BitXor for #name {
+                type Output = Self;
+
+                fn bitxor(self, rhs: Self) -> Self::Output {
+                    Self(self.0 ^ rhs.0)
+                }
+            }
+
+            impl ::std::ops::BitXorAssign for #name {
+                fn bitxor_assign(&mut self, rhs: Self) {
+                    self.0 ^= rhs.0;
+                }
+            }
+
+            impl ::std::ops::Not for #name {
+                type Output = Self;
+
+                fn not(self) -> Self::Output{
+                    Self(!self.0)
+                }
+            }
+
+            impl ::std::ops::Deref for #name {
+                type Target = u32;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.0
+                }
+            }
+
+            impl ::std::ops::DerefMut for #name {
+                fn deref_mut(&mut self) -> &mut Self::Target {
+                    &mut self.0
                 }
             }
         });
@@ -72,10 +140,15 @@ impl ToTokens for EnumVariant {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let key = syn::parse_str::<Ident>(&self.key).unwrap();
         let value = &self.value;
-        let deprecated = &self.deprecated.then(|| quote!(#[deprecated]));
-        // let comment = &self.comment.map(|comment| {});
+
+        let deprecated = self.deprecated.then(|| quote!(#[deprecated]));
+        let comment = self
+            .comment
+            .as_ref()
+            .map(|comment| quote!(#[doc = #comment]));
 
         tokens.append_all(quote! {
+            #comment
             #deprecated
             pub const #key: Self = #value;
         });
@@ -95,13 +168,15 @@ impl ToTokens for EnumVariantValue {
             EnumVariantValue::Int(int) => tokens.append_all(quote!(Self(#int))),
             EnumVariantValue::Reference(key) => {
                 let key = syn::parse_str::<Ident>(key).unwrap();
-                tokens.append_all(quote!(Self::#key));
+                tokens.append_all(quote!(Self::#key.0));
             }
             EnumVariantValue::Union(vec) => {
-                tokens.append_all(Itertools::intersperse(
+                let inner = Itertools::intersperse(
                     vec.iter().map(|value| value.into_token_stream()),
                     quote!(|),
-                ));
+                )
+                .collect::<TokenStream>();
+                tokens.append_all(quote!(Self(#inner)));
             }
         }
     }
@@ -154,6 +229,15 @@ fn parse_enums(data: &str) -> Vec<Enum> {
                 }
                 used_ids.push(int);
             }
+
+            if variant
+                .comment
+                .as_ref()
+                .filter(|comment| comment.contains("removed") || comment.contains("obsolete"))
+                .is_some()
+            {
+                variant.deprecated = true;
+            }
         }
 
         let mut used_keys = vec![];
@@ -199,10 +283,14 @@ fn resources() {
     let code = prettyplease::unparse(&syn::parse2(tokens).expect("bad code generation"));
 
     // write generated file
-    fs::write(res_path, code).unwrap();
+    fs::write(&res_path, code).unwrap();
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/protos");
+    println!("cargo:rerun-if-changed=src/resources");
+
     resources();
-    // protobufs();
+    protobufs();
 }

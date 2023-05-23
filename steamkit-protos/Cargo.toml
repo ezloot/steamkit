@@ -13,8 +13,6 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 [dependencies]
 protobuf = "3.2"
-opaque_typedef = "0.0.5"
-opaque_typedef_macros = "0.0.5"
 
 [build-dependencies]
 protobuf-codegen = "3.2"
