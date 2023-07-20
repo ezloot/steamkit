@@ -15,11 +15,9 @@ pub struct SessionKey {
 }
 
 impl SessionKey {
-    pub fn generate(nonce: Option<Vec<u8>>) -> Self {
+    pub fn generate(nonce: &[u8]) -> Self {
         let mut rng = rand::thread_rng();
-
         let session_key = rng.gen::<[u8; 32]>().to_vec();
-        let nonce = nonce.unwrap_or_default();
 
         let mut buf = session_key.clone();
         buf.extend_from_slice(&nonce);
@@ -55,6 +53,8 @@ pub mod hash {
         crc.checksum(data)
     }
 }
+
+pub use hex::encode as hex;
 
 #[cfg(test)]
 mod tests {
