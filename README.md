@@ -15,9 +15,6 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 # To-do
 
-- [ ] Add `serde` feature to `steamkit-vdf`.
+- [x] Add `serde` feature to `steamkit-vdf`.
 - [ ] Add `steamd` file parser and generate code (modules and constants inside the module).
-
-# Done
-
-* Add `serde` feature but only support deserialization for now.
+- [ ] Convert usage of Bash scripts into a Rust crate and add as part of the `build.rs` file.
