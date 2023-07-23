@@ -17,3 +17,4 @@ protobuf = "3.2"
 [build-dependencies]
 protobuf-codegen = "3.2"
 protoc-bin-vendored = "3.0"
+glob = "0.3"
