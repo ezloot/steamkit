@@ -1,3 +1,6 @@
 [submodule "steamkit-protos/assets/Protobufs"]
 	path = steamkit-protos/assets/Protobufs
 	url = https://github.com/steamdatabase/protobufs
+[submodule "steamkit-lang/assets/SteamKit"]
+	path = steamkit-lang/assets/SteamKit
+	url = https://github.com/SteamRE/SteamKit
