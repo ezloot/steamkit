@@ -42,7 +42,7 @@ fn generate_mod(folders: &[&str], out_dir: &PathBuf) {
 
     let src = folders
         .iter()
-        .map(|folder| format!("pub mod {folder};\n"))
+        .map(|folder| format!("mod {folder};\n"))
         .collect::<String>();
 
     fs::write(&path, src).unwrap();
