@@ -13,8 +13,13 @@
 
 This crate is designed to be a bunch of tools for interacting with the Steam API.
 
+# Goals
+
+- [ ] Be async-runtime agnostic-ish by at least offering features for popular runtimes.
+- [ ] Have an easy to use API but still flexible.
+- [ ] Maybe support `no-std`?
+
 # To-do
 
 - [x] Add `serde` feature to `steamkit-vdf`.
 - [ ] Add `steamd` file parser and generate code (modules and constants inside the module).
-- [ ] Convert usage of Bash scripts into a Rust crate and add as part of the `build.rs` file.
