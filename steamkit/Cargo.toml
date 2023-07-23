@@ -17,3 +17,4 @@ steamkit-vdf = { path = "../steamkit-vdf", version = "0.2.0" }
 steamkit-protos = { path = "../steamkit-protos", version = "0.2.0" }
 steamkit-client = { path = "../steamkit-client", version = "0.2.0" }
 steamkit-util = { path = "../steamkit-util", version = "0.2.0" }
+steamkit-lang = { path = "../steamkit-lang", version = "0.2.0" }
