@@ -1,5 +1,6 @@
 {
     "files.exclude": {
-        "/steamkit-protos/protobufs/*": true
+        "/steamkit-protos/assets/Protobufs/**/*[!.proto]": true,
+        "/steamkit-lang/assets/SteamKit/**/*[!.steamd]": true,
     }
 }
