@@ -2,22 +2,21 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::complete::{is_not, tag},
     character::complete::{
-        alphanumeric1, anychar, digit1, hex_digit1, multispace0, multispace1, newline,
-        not_line_ending, one_of,
+        digit1, hex_digit1, multispace0, multispace1, not_line_ending, one_of, space0, space1,
     },
     combinator::{map, map_res, opt, recognize},
-    multi::{many0, many1, many_till},
+    multi::{many0, many1, separated_list1},
     sequence::{delimited, preceded, tuple},
     IResult,
 };
 
 #[derive(Debug, Clone)]
 pub enum EnumValue {
-    Number(i32),
+    Number(String),
     Hex(String),
-    Expression(String),
+    Or(Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -38,7 +37,7 @@ pub struct Enum {
     pub variants: Vec<EnumVariant>,
 }
 
-pub fn hex(input: &str) -> IResult<&str, &str> {
+fn hex(input: &str) -> IResult<&str, &str> {
     preceded(tag("0x"), recognize(many1(hex_digit1)))(input)
 }
 
@@ -56,44 +55,44 @@ fn identifier(input: &str) -> IResult<&str, &str> {
     )))(input)
 }
 
-fn comment(input: &str) -> IResult<&str, &str> {
-    recognize(many1(one_of(
-        "#+-.!;:'/\\@:_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\t ",
-    )))(input)
-}
-
 fn enum_variant_value(input: &str) -> IResult<&str, EnumValue> {
     alt((
         map(hex, |hex| EnumValue::Hex(hex.to_owned())),
+        map(recognize(tuple((opt(tag("-")), digit1))), |num: &str| {
+            EnumValue::Number(num.to_owned())
+        }),
         map(
-            map_res(tuple((opt(tag("-")), digit1)), |(sign, digits)| {
-                let sign = sign.unwrap_or("");
-                format!("{sign}{digits}").parse()
-            }),
-            |num| EnumValue::Number(num),
+            separated_list1(tuple((multispace0, tag("|"), multispace0)), identifier),
+            |list| EnumValue::Or(list.into_iter().map(str::to_owned).collect()),
         ),
     ))(input)
+}
+
+fn comment(input: &str) -> IResult<&str, &str> {
+    map(preceded(tag("//"), not_line_ending), |s: &str| s.trim())(input)
+}
+
+fn reason(input: &str) -> IResult<&str, &str> {
+    delimited(tag("\""), is_not("\"\n"), tag("\""))(input)
 }
 
 fn enum_variant(input: &str) -> IResult<&str, EnumVariant> {
     map(
         tuple((
-            opt(tuple((multispace0, tag("//"), comment, newline))),
+            // ignore full-line comments
+            opt(tuple((multispace0, comment))),
+            // consume key
             preceded(multispace0, identifier),
-            preceded(multispace1, tag("=")),
-            preceded(multispace1, enum_variant_value),
-            tag(";"),
+            preceded(space1, tag("=")),
+            // consume value
+            preceded(space1, enum_variant_value),
+            preceded(space0, tag(";")),
             opt(tuple((
-                preceded(multispace1, alt((tag("removed"), tag("obsolete")))),
-                opt(preceded(
-                    multispace1,
-                    delimited(tag("\""), comment, tag("\"")),
-                )),
+                preceded(space1, alt((tag("removed"), tag("obsolete")))),
+                opt(preceded(space1, reason)),
             ))),
-            opt(preceded(
-                tuple((multispace0, tag("//"), multispace0)),
-                not_line_ending,
-            )),
+            // handle inline comments
+            opt(preceded(space0, comment)),
             multispace0,
         )),
         |(_, name, _, value, _, extra, comment, _)| {
@@ -103,7 +102,7 @@ fn enum_variant(input: &str) -> IResult<&str, EnumVariant> {
                 obsolete: status == "obsolete",
                 removed: status == "removed",
                 reason: reason.map(str::to_string),
-                comment: comment.map(str::to_string),
+                comment: comment.map(str::trim).map(str::to_string),
                 value,
             }
         },
@@ -113,7 +112,10 @@ fn enum_variant(input: &str) -> IResult<&str, EnumVariant> {
 pub fn parse_enum(input: &str) -> IResult<&str, Enum> {
     map(
         tuple((
-            preceded(multispace0, tag("enum")),
+            preceded(
+                preceded(multispace0, opt(tuple((tag("public"), space1)))),
+                tag("enum"),
+            ),
             preceded(multispace1, identifier),
             opt(generic),
             opt(preceded(multispace1, tuple((tag("flag"), opt(tag("s")))))),
@@ -158,10 +160,13 @@ pub enum DocumentEntry {
 
 pub fn document(input: &str) -> IResult<&str, Document> {
     map(
-        many0(preceded(multispace0, alt((
-            map(import, |file| DocumentEntry::Import(file.to_owned())),
-            map(parse_enum, |value| DocumentEntry::Enum(value)),
-        )))),
+        many0(preceded(
+            multispace0,
+            alt((
+                map(import, |file| DocumentEntry::Import(file.to_owned())),
+                map(parse_enum, |value| DocumentEntry::Enum(value)),
+            )),
+        )),
         |entries| Document { entries },
     )(input)
 }

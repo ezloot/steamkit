@@ -34,6 +34,31 @@ client.inbound.on_async(EMsg::ChannelEncryptRequest, async |client, message| {
 */
 
 fn main() {
+    let text = r#"
+
+    enum EChatEntryType
+    {
+        Invalid = 0;
+    
+        ChatMsg = 1;
+        Typing = 2;
+        InviteGame = 3;
+        Emote = 4; removed "No longer supported by clients"
+        LobbyGameStart = 5; removed "Listen for LobbyGameCreated_t callback instead"
+        LeftConversation = 6;
+        Entered = 7;
+        WasKicked = 8;
+        WasBanned = 9;
+        Disconnected = 10;
+        HistoricalChat = 11;
+        Reserved1 = 12;
+        Reserved2 = 13;
+        LinkBlocked = 14;
+    };
+    "#;
+
+    // println!("{:?}", parser::reason(r#""test 123""#));
     let file = fs::read_to_string("assets/SteamKit/Resources/SteamLanguage/enums.steamd").unwrap();
     println!("{:?}", parser::document(&file));
+    // println!("{:?}", parser::parse_enum(&text));
 }
