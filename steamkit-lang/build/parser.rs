@@ -1,12 +1,10 @@
-// TODO: https://tfpk.github.io/nominomicon/
-
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
     character::complete::{
         digit1, hex_digit1, multispace0, multispace1, not_line_ending, one_of, space0, space1,
     },
-    combinator::{map, map_res, opt, recognize},
+    combinator::{map, opt, recognize},
     multi::{many0, many1, separated_list1},
     sequence::{delimited, preceded, tuple},
     IResult,
