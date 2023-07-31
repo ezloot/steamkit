@@ -1,37 +1,3 @@
-// use crate::parser::{Enum, Document, DocumentEntry};
-
-// impl ToTokens for Document {
-//     fn to_tokens(&self, tokens: &mut TokenStream) {
-//         for entry in &self.entries {
-//             if let DocumentEntry::Enum(enum_) = entry {
-//                 enum_.to_tokens(tokens);
-//             }
-//         }
-//     }
-// }
-
-// impl ToTokens for Enum {
-//     fn to_tokens(&self, tokens: &mut TokenStream) {
-//         let name = &self.name;
-//         let generic = self.generic.as_ref().map(String::as_str).unwrap_or("i32");
-//         let variants = self
-//             .variants
-//             .iter()
-//             .map(|variant| {
-//                 let name = &variant.name;
-//                 quote! { #name = 123 }
-//             })
-//             .collect::<Vec<_>>();
-
-//         tokens.extend(quote! {
-//             #[repr(i32)]
-//             enum #name {
-//                 #(#variants)*
-//             }
-//         });
-//     }
-// }
-
 use std::collections::HashSet;
 
 use heck::ToShoutySnakeCase;
