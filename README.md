@@ -22,4 +22,9 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 # To-do
 
 - [x] Add `serde` feature to `steamkit-vdf`.
-- [ ] Add `steamd` file parser and generate code (modules and constants inside the module).
+- [ ] Add `steamd` file parser and codegen.
+  - [x] Enum parsing and codegen.
+  - [ ] Class parsing and codgen.
+  - [ ] Support constant values for classes.
+  - [ ] Support default values for class members.
+  - [ ] Trait for getting EMsg enum variant for classes.
