@@ -13,7 +13,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 [dependencies]
 thiserror = "1.0"
-num_enum = "0.6"
+# num_enum = "0.6"
 regex = "1.8"
 lazy_static = "1.0"
 rust-crypto = "0.2"
@@ -23,3 +23,6 @@ sha1 = { version = "0.10", features = ["oid"] }
 crc = "3.0"
 adler = "1.0"
 hex = "0.4"
+
+# steamkit
+steamkit-lang = { path = "../steamkit-lang", version = "0.2.0" }

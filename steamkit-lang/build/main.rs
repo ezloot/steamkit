@@ -1,38 +1,9 @@
+use generator::Generate;
 use glob::glob;
 use std::{env, fs, path::PathBuf};
 
+mod generator;
 mod parser;
-
-// use std::env;
-
-// TODO: support classes
-// TODO: support enums
-// TODO: support flags
-// TODO: add a way to map EMsg to message classes
-// TODO: support class constants (as pub const on struct impls)
-// TODO: `use derive-new` to add default values for new
-// TODO: show removed enum variants as commented out (with message if available)
-// TODO: show obsolete enum variants as deprecated (with message if available)
-
-/*
-
-// Do some api like this?
-
-let client = Client::new();
-
-client.inbound.on(EMsg::ChannelEncryptRequest, |client, message| {
-    let message = message.read::<ChannelEncryptRequest>().unwrap();
-
-    client.outbound.send(...);
-});
-
-client.inbound.on_async(EMsg::ChannelEncryptRequest, async |client, message| {
-    let message = message.read::<ChannelEncryptRequest>().unwrap();
-
-    client.outbound.send(...);
-}).await;
-
-*/
 
 fn main() {
     // use cargo out dir for build files
@@ -50,19 +21,20 @@ fn main() {
 
     let mut modules = vec![];
     let paths = glob("assets/SteamKit/Resources/SteamLanguage/enums.steamd").unwrap();
-    
+
     for path in paths {
         let path = path.unwrap();
         let content = fs::read_to_string(&path).unwrap();
 
-        if let Ok((_, _document)) = parser::document(&content) {
+        if let Ok((_, document)) = parser::document(&content) {
             let module = path.file_stem().unwrap().to_str().unwrap().to_owned();
             let mut path = out_dir.clone();
             path.push(format!("{module}.rs"));
             modules.push(module);
 
             // todo generate content for module
-            fs::write(path, "yay").unwrap();
+            let content = document.generate_stream().to_string();
+            fs::write(path, content).unwrap();
         }
     }
 
