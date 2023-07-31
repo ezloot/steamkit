@@ -17,7 +17,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 - [ ] Be async-runtime agnostic-ish by at least offering features for popular runtimes.
 - [ ] Have an easy to use API but still flexible.
-- [ ] Maybe support `no-std`?
+- [ ] Maybe support `no-std`? ***Probably not happening.***
 
 # To-do
 
