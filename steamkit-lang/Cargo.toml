@@ -10,18 +10,13 @@ documentation = "https://docs.rs/steamkit-lang/0.2.0"
 description = """
 This crate is used to generate Rust code from the `SteamLanguage` files provided by `SteamKit`.
 """
-# build = "build/main.rs"
-
-[[bin]]
-name = "bob"
-path = "build/main.rs"
+build = "build/main.rs"
 
 [dependencies]
 bitflags = "2.3"
 num-traits = "0.2"
-# bob
-nom = "7.1"
 
 [build-dependencies]
 syn = "2.0"
 nom = "7.1"
+glob = "0.3"

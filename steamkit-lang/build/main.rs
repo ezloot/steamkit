@@ -1,4 +1,5 @@
-use std::fs;
+use glob::glob;
+use std::{env, fs, path::PathBuf};
 
 mod parser;
 
@@ -34,31 +35,45 @@ client.inbound.on_async(EMsg::ChannelEncryptRequest, async |client, message| {
 */
 
 fn main() {
-    let text = r#"
+    // use cargo out dir for build files
+    let cargo_out_dir = env::var("OUT_DIR").expect("OUT_DIR env var not set");
+    let mut out_dir = PathBuf::from(cargo_out_dir);
+    out_dir.push("generated");
 
-    enum EChatEntryType
-    {
-        Invalid = 0;
+    // remove previous build files
+    if out_dir.exists() {
+        fs::remove_dir_all(&out_dir).unwrap();
+    }
+
+    // create dir
+    fs::create_dir(&out_dir).unwrap();
+
+    let mut modules = vec![];
+    let paths = glob("assets/SteamKit/Resources/SteamLanguage/enums.steamd").unwrap();
     
-        ChatMsg = 1;
-        Typing = 2;
-        InviteGame = 3;
-        Emote = 4; removed "No longer supported by clients"
-        LobbyGameStart = 5; removed "Listen for LobbyGameCreated_t callback instead"
-        LeftConversation = 6;
-        Entered = 7;
-        WasKicked = 8;
-        WasBanned = 9;
-        Disconnected = 10;
-        HistoricalChat = 11;
-        Reserved1 = 12;
-        Reserved2 = 13;
-        LinkBlocked = 14;
-    };
-    "#;
+    for path in paths {
+        let path = path.unwrap();
+        let content = fs::read_to_string(&path).unwrap();
 
-    // println!("{:?}", parser::reason(r#""test 123""#));
-    let file = fs::read_to_string("assets/SteamKit/Resources/SteamLanguage/enums.steamd").unwrap();
-    println!("{:?}", parser::document(&file));
-    // println!("{:?}", parser::parse_enum(&text));
+        if let Ok((_, _document)) = parser::document(&content) {
+            let module = path.file_stem().unwrap().to_str().unwrap().to_owned();
+            let mut path = out_dir.clone();
+            path.push(format!("{module}.rs"));
+            modules.push(module);
+
+            // todo generate content for module
+            fs::write(path, "yay").unwrap();
+        }
+    }
+
+    // create mod.rs file for all sub-modules
+    let mut path = out_dir;
+    path.push("mod.rs");
+
+    // convert module name array into code
+    let modules = modules
+        .into_iter()
+        .map(|module| format!("pub mod {module};\n"))
+        .collect::<String>();
+    fs::write(path, modules).unwrap();
 }
