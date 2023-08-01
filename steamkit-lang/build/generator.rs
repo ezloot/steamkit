@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use heck::ToShoutySnakeCase;
 
-use crate::parser::{Document, DocumentEntry, Enum, EnumValue, EnumVariant};
+use crate::parser::{Class, Document, DocumentEntry, Enum, EnumValue, EnumVariant};
 
 #[derive(Default)]
 pub struct Generator {
@@ -40,8 +40,13 @@ pub trait Generate {
 impl Generate for Document {
     fn generate(&self, gen: &mut Generator) {
         for entry in self.entries.iter() {
-            if let DocumentEntry::Enum(enum_) = entry {
-                enum_.generate(gen);
+            match entry {
+                DocumentEntry::Enum(enum_) => enum_.generate(gen),
+                DocumentEntry::Class(class) => class.generate(gen),
+                DocumentEntry::Import(import) => {
+                    let module = import.replace(".steamd", "");
+                    gen.imports.insert(format!("{module}::*"));
+                }
             }
         }
     }
@@ -142,13 +147,14 @@ impl Generate for Enum {
             gen.imports.insert("num_derive::FromPrimitive".to_owned());
             gen.imports.insert("num_derive::ToPrimitive".to_owned());
 
-            gen.body
-                .push_str("#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]\n");
+            gen.body.push_str(
+                "#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]\n",
+            );
             gen.body.push_str("#[derive(FromPrimitive, ToPrimitive)]\n");
             gen.body.push_str(&format!("#[repr({repr})]\n"));
             gen.body.push_str(&format!("pub enum {name} {{\n"));
 
-            let mut first = true; 
+            let mut first = true;
 
             for variant in unique_variants(&self.variants) {
                 let name = &variant.name;
@@ -190,4 +196,8 @@ impl Generate for Enum {
             gen.body.push_str("}\n\n");
         }
     }
+}
+
+impl Generate for Class {
+    fn generate(&self, _gen: &mut Generator) {}
 }

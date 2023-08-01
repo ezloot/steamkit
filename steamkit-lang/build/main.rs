@@ -20,13 +20,17 @@ fn main() {
     fs::create_dir(&out_dir).unwrap();
 
     let mut modules = vec![];
-    let paths = glob("assets/SteamKit/Resources/SteamLanguage/enums.steamd").unwrap();
+    let paths = glob("assets/SteamKit/Resources/SteamLanguage/*.steamd").unwrap();
 
     for path in paths {
         let path = path.unwrap();
         let content = fs::read_to_string(&path).unwrap();
 
         if let Ok((_, document)) = parser::document(&content) {
+            if document.entries.is_empty() {
+                continue;
+            }
+
             let module = path.file_stem().unwrap().to_str().unwrap().to_owned();
             let mut path = out_dir.clone();
             path.push(format!("{module}.rs"));
