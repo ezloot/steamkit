@@ -22,7 +22,7 @@ impl ToString for Generator {
         if imports.is_empty() {
             body.clone()
         } else {
-            format!("#![allow(non_camel_case_types)]\n\n{imports}\n{body}")
+            format!("#![allow(non_camel_case_types)]\n#![allow(deprecated)]\n#![allow(unused_imports)]\n\n{imports}\n{body}")
         }
     }
 }
@@ -45,7 +45,7 @@ impl Generate for Document {
                 DocumentEntry::Class(class) => class.generate(gen),
                 DocumentEntry::Import(import) => {
                     let module = import.replace(".steamd", "");
-                    gen.imports.insert(format!("{module}::*"));
+                    gen.imports.insert(format!("super::{module}::*"));
                 }
             }
         }
