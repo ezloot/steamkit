@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use heck::ToShoutySnakeCase;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::parser::{Class, Document, DocumentEntry, Enum, EnumValue, EnumVariant};
 
@@ -77,7 +79,15 @@ fn unique_variants<'a>(variants: &'a Vec<EnumVariant>) -> Vec<EnumVariant> {
     variants
 }
 
-fn convert_type(type_: &str) -> &str {
+fn convert_type(type_: &str) -> String {
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(.+)<(\d+)>").unwrap());
+    
+    if let Some(captures) = RE.captures(type_) {
+        let name = convert_type(captures.get(0).unwrap().as_str());
+        let size = captures.get(1).unwrap().as_str();
+        return format!("[{name}; {size}]");
+    }
+
     match type_ {
         "char" => "i8",
         "short" => "i16",
@@ -88,7 +98,7 @@ fn convert_type(type_: &str) -> &str {
         "uint" => "u32",
         "ulong" => "u64",
         _ => panic!(),
-    }
+    }.to_owned()
 }
 
 impl Generate for Enum {
