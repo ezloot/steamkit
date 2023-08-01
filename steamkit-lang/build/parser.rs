@@ -59,6 +59,18 @@ pub struct Class {
     pub members: Vec<ClassMember>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Document {
+    pub entries: Vec<DocumentEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub enum DocumentEntry {
+    Import(String),
+    Enum(Enum),
+    Class(Class),
+}
+
 fn hex(input: &str) -> IResult<&str, &str> {
     preceded(tag("0x"), recognize(many1(hex_digit1)))(input)
 }
@@ -140,7 +152,7 @@ fn enum_variant(input: &str) -> IResult<&str, EnumVariant> {
     )(input)
 }
 
-pub fn parse_enum(input: &str) -> IResult<&str, Enum> {
+fn parse_enum(input: &str) -> IResult<&str, Enum> {
     map(
         tuple((
             preceded(
@@ -226,7 +238,10 @@ fn class_member(input: &str) -> IResult<&str, ClassMember> {
                     ),
                 )),
             ),
-            opt(preceded(tuple((space1, tag("="), space1)), class_member_value)),
+            opt(preceded(
+                tuple((space1, tag("="), space1)),
+                class_member_value,
+            )),
             preceded(space0, tag(";")),
             multispace0,
         )),
@@ -237,7 +252,7 @@ fn class_member(input: &str) -> IResult<&str, ClassMember> {
     )(input)
 }
 
-pub fn class(input: &str) -> IResult<&str, Class> {
+fn class(input: &str) -> IResult<&str, Class> {
     map(
         tuple((
             preceded(
@@ -273,18 +288,6 @@ fn import(input: &str) -> IResult<&str, &str> {
         )),
         |(_, file, _)| file,
     )(input)
-}
-
-#[derive(Debug, Clone)]
-pub struct Document {
-    pub entries: Vec<DocumentEntry>,
-}
-
-#[derive(Debug, Clone)]
-pub enum DocumentEntry {
-    Import(String),
-    Enum(Enum),
-    Class(Class),
 }
 
 pub fn document(input: &str) -> IResult<&str, Document> {
