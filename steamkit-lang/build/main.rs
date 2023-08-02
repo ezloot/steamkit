@@ -1,5 +1,4 @@
 use generator::Generate;
-use glob::glob;
 use std::{env, fs, path::PathBuf};
 
 mod generator;
@@ -19,11 +18,10 @@ fn main() {
     // create dir
     fs::create_dir(&out_dir).unwrap();
 
-    let mut modules = vec![];
-    let paths = glob("assets/SteamKit/Resources/SteamLanguage/*.steamd").unwrap();
+    let modules = vec!["emsg", "enums", "eresult", "steammsg"];
 
-    for path in paths {
-        let path = path.unwrap();
+    for module in &modules {
+        let path = format!("assets/SteamKit/Resources/SteamLanguage/{module}.steamd");
         let content = fs::read_to_string(&path).unwrap();
 
         if let Ok((_, document)) = parser::document(&content) {
@@ -31,10 +29,8 @@ fn main() {
                 continue;
             }
 
-            let module = path.file_stem().unwrap().to_str().unwrap().to_owned();
             let mut path = out_dir.clone();
             path.push(format!("{module}.rs"));
-            modules.push(module);
 
             // todo generate content for module
             let content = document.generate_stream().to_string();

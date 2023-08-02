@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use heck::ToShoutySnakeCase;
+use heck::{ToShoutySnakeCase, ToSnakeCase};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -80,8 +80,8 @@ fn unique_variants<'a>(variants: &'a Vec<EnumVariant>) -> Vec<EnumVariant> {
 }
 
 fn convert_type(type_: &str) -> String {
-    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(.+)<(\d+)>").unwrap());
-    
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"<(\d+)>").unwrap());
+
     if let Some(captures) = RE.captures(type_) {
         let name = convert_type(captures.get(0).unwrap().as_str());
         let size = captures.get(1).unwrap().as_str();
@@ -97,8 +97,9 @@ fn convert_type(type_: &str) -> String {
         "ushort" => "u16",
         "uint" => "u32",
         "ulong" => "u64",
-        _ => panic!(),
-    }.to_owned()
+        type_ => type_,
+    }
+    .to_owned()
 }
 
 impl Generate for Enum {
@@ -209,5 +210,46 @@ impl Generate for Enum {
 }
 
 impl Generate for Class {
-    fn generate(&self, _gen: &mut Generator) {}
+    fn generate(&self, gen: &mut Generator) {
+        let name = &self.name;
+        let members = self
+            .members
+            .iter()
+            .filter(|member| !member.constant)
+            .collect::<Vec<_>>();
+        let constants = self
+            .members
+            .iter()
+            .filter(|member| member.constant)
+            .collect::<Vec<_>>();
+
+        gen.body.push_str(&format!("pub struct {name} {{\n"));
+
+        for member in members {
+            let mut name = member.name.to_snake_case();
+            let type_ = convert_type(&member.type_);
+
+            if name == "type" {
+                name.push('_');
+            }
+
+            gen.body.push_str(&format!("    pub {name}: {type_},\n"));
+        }
+
+        gen.body.push_str("}\n\n");
+
+        if !constants.is_empty() {
+            gen.body.push_str(&format!("impl {name} {{"));
+
+            for member in constants {
+                let name = member.name.to_shouty_snake_case();
+                let type_ = convert_type(&member.type_);
+
+                gen.body
+                    .push_str(&format!("    pub const {name}: {type_} = todo!();\n"));
+            }
+
+            gen.body.push_str("}\n\n");
+        }
+    }
 }
