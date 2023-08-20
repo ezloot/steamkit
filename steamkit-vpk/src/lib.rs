@@ -3,30 +3,30 @@ mod error;
 use std::collections::HashMap;
 
 pub use error::*;
-use nom::{
-    bytes::complete::{tag, take, take_until},
-    character::complete::char,
-    combinator::{map, map_res, peek, recognize},
-    multi::many_till,
-    number::complete::{le_u32, le_u8},
-    sequence::{pair, tuple},
-    IResult,
-};
+use nom::{bytes::complete::tag, multi::many_till, number::complete::le_u8, IResult};
 use nom_derive::{Nom, Parse};
 
-pub struct Vpk {}
-
-impl Vpk {
-    pub const SIGNATURE: u32 = 0x55aa1234;
+#[derive(Debug, Nom)]
+#[nom(LittleEndian)]
+pub struct Vpk {
+    pub header: Header,
+    #[nom(Parse = "tree")]
+    pub tree: HashMap<String, Entry>,
 }
 
 #[derive(Debug, Nom)]
 #[nom(LittleEndian)]
 pub struct Header {
+    #[nom(Verify = "*signature == Self::SIGNATURE")]
     pub signature: u32,
+    #[nom(Verify = "*version == 1 || *version == 2")]
     pub version: u32,
     #[nom(Parse = "{ |i| HeaderData::parse(i, version) }")]
     pub data: HeaderData,
+}
+
+impl Header {
+    pub const SIGNATURE: u32 = 0x55aa1234;
 }
 
 #[derive(Debug, Nom)]
@@ -39,8 +39,8 @@ pub enum HeaderData {
     V2 {
         tree_length: u32,
         data_length: u32,
-        md5_length: u32,
-        external_md5_length: u32,
+        archive_md5_length: u32,
+        local_md5_length: u32,
         signature_length: u32,
     },
 }
@@ -63,7 +63,7 @@ pub struct DirectoryEntry {
     pub file_length: u32,
     pub suffix: u16,
     #[nom(Map = "|payload: &[u8]| payload.to_vec()", Take = "preload_length")]
-    pub payload: Vec<u8>,
+    pub preload: Vec<u8>,
 }
 
 #[derive(Debug)]
