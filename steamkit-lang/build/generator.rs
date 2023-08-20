@@ -83,9 +83,9 @@ fn convert_type(type_: &str) -> String {
     static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"<(\d+)>").unwrap());
 
     if let Some(captures) = RE.captures(type_) {
-        let name = convert_type(captures.get(0).unwrap().as_str());
-        let size = captures.get(1).unwrap().as_str();
-        return format!("[{name}; {size}]");
+        // let name = convert_type(captures.get(0).unwrap().as_str());
+        // let size = captures.get(1).unwrap().as_str();
+        // return format!("[{name}; {size}]");
     }
 
     match type_ {

@@ -6,5 +6,6 @@ members = [
     "steamkit-client",
     "steamkit-util",
     "steamkit-lang",
+    "steamkit-vpk",
 ]
 resolver = "2"
