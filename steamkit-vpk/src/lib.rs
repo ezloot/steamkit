@@ -2,9 +2,9 @@ mod error;
 
 pub use error::*;
 use nom::{
-    bytes::complete::{tag, take_until},
+    bytes::complete::{tag, take, take_until},
     character::complete::char,
-    combinator::{map, map_res},
+    combinator::{map, map_res, recognize},
     multi::many_till,
     number::complete::{le_u32, le_u8},
     sequence::{pair, tuple},
@@ -38,10 +38,16 @@ pub enum Header {
 
 impl Header {
     pub fn tree_length(&self) -> u32 {
+        let test = &[0u8];
         match self {
             Self::V2 { tree_length, .. } | Self::V1 { tree_length, .. } => *tree_length,
         }
     }
+}
+
+impl Header {
+    pub const V1_LENGTH: usize = 4 * 3;
+    pub const V2_LENGTH: usize = 4 * 7;
 }
 
 #[derive(Debug, Nom)]
@@ -53,6 +59,8 @@ pub struct DirectoryEntry {
     pub archive_offset: u32,
     pub file_length: u32,
     pub suffix: u16,
+    #[nom(Map = "|payload: &[u8]| payload.to_vec()", Take = "preload_length")]
+    pub payload: Vec<u8>,
 }
 
 pub fn header(input: &[u8]) -> IResult<&[u8], Header, Error<&[u8]>> {
@@ -140,13 +148,7 @@ pub fn tree(mut input: &[u8]) -> IResult<&[u8], (), Error<&[u8]>> {
                     DirectoryEntry::parse(input).map_err(|e| e.map(|e| Error::Parse(e)))?;
                 input = i;
 
-                if entry.preload_length > 0 {
-                    let idx = entry.preload_length as usize;
-                    let preload = &input[0..idx];
-                    input = &input[idx..];
-                }
-
-                println!("{path} {entry:?}");
+                // println!("{path} {entry:?}");
                 // break;
             }
         }
