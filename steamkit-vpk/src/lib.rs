@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use nom::{
     bytes::complete::{tag, take},
-    combinator::complete,
+    combinator::{complete, map},
     error::ParseError,
     multi::many_till,
     number::complete::le_u8,
+    sequence::pair,
     IResult, InputIter, InputTake, Parser,
 };
 use nom_derive::{Nom, Parse};
@@ -89,51 +90,45 @@ where
     }
 }
 
-fn tree(mut input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
-    let mut map = HashMap::new();
+fn tree(input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
+    map(
+        many_till(
+            pair(
+                cstring,
+                many_till(
+                    pair(
+                        cstring,
+                        many_till(pair(cstring, DirectoryEntry::parse), tag(&[0u8])),
+                    ),
+                    tag(&[0u8]),
+                ),
+            ),
+            tag(&[0u8]),
+        ),
+        |(entries, _)| {
+            let mut m = HashMap::new();
+            for (ext, (v, _)) in entries {
+                for (dir, (v, _)) in v {
+                    for (name, dir_entry) in v {
+                        let mut path = name.clone();
+                        if path == " " {
+                            path.clear();
+                        }
 
-    loop {
-        let (i, ext) = cstring(input)?;
-        input = i;
-        if ext.is_empty() {
-            break;
-        }
+                        if ext != " " {
+                            path.push('.');
+                            path.push_str(&ext);
+                        }
 
-        loop {
-            let (i, dir) = cstring(input)?;
-            input = i;
-            if dir.is_empty() {
-                break;
+                        if dir != " " {
+                            path = format!("{dir}/{path}");
+                        }
+
+                        m.insert(path.clone(), Entry { path, dir_entry });
+                    }
+                }
             }
-
-            loop {
-                let (i, name) = cstring(input)?;
-                input = i;
-                if name.is_empty() {
-                    break;
-                }
-
-                let mut path = name.clone();
-                if path == " " {
-                    path.clear();
-                }
-
-                if ext != " " {
-                    path.push('.');
-                    path.push_str(&ext);
-                }
-
-                if dir != " " {
-                    path = format!("{dir}/{path}");
-                }
-
-                let (i, dir_entry) = DirectoryEntry::parse(input)?;
-                input = i;
-
-                map.insert(path.clone(), Entry { path, dir_entry });
-            }
-        }
-    }
-
-    Ok((input, map))
+            m
+        },
+    )(input)
 }
