@@ -92,7 +92,7 @@ pub struct HeaderV2 {
     pub signature_length: u32,
 }
 
-#[derive(Debug, Clone, Nom)]
+#[derive(Debug, Nom)]
 #[nom(LittleEndian)]
 pub struct ArchiveMD5Entry {
     pub archive_index: u32,
