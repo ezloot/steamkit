@@ -1,14 +1,12 @@
-mod error;
-
 use std::collections::HashMap;
 
-pub use error::*;
 use nom::{
     bytes::complete::{tag, take},
-    combinator::map_res,
+    combinator::complete,
+    error::ParseError,
     multi::many_till,
     number::complete::le_u8,
-    IResult,
+    IResult, InputIter, InputTake, Parser,
 };
 use nom_derive::{Nom, Parse};
 
@@ -16,7 +14,7 @@ use nom_derive::{Nom, Parse};
 #[nom(LittleEndian)]
 pub struct Vpk {
     pub header: Header,
-    #[nom(Parse = "limited(tree, header.tree_length as usize)")]
+    #[nom(Parse = "limit(complete(tree), header.tree_length as usize)")]
     pub tree: HashMap<String, Entry>,
 }
 
@@ -64,7 +62,7 @@ pub struct Entry {
     pub dir_entry: DirectoryEntry,
 }
 
-pub fn cstring(input: &[u8]) -> IResult<&[u8], String> {
+fn cstring(input: &[u8]) -> IResult<&[u8], String> {
     let (input, (bytes, _)) = many_till(le_u8, tag(&[0]))(input)?;
 
     match String::from_utf8(bytes) {
@@ -76,18 +74,22 @@ pub fn cstring(input: &[u8]) -> IResult<&[u8], String> {
     }
 }
 
-fn limited<O, F>(parser: F, max_length: usize) -> impl Fn(&[u8]) -> IResult<&[u8], O>
+fn limit<I: Clone, O, E: ParseError<I>, F>(
+    mut parser: F,
+    max_length: usize,
+) -> impl FnMut(I) -> IResult<I, O, E>
 where
-    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    I: InputIter + InputTake,
+    F: Parser<I, O, E>,
 {
-    move |input: &[u8]| {
-        let limited = take(max_length);
-        let mut limited_parser = map_res(limited, |data: &[u8]| parser(data).map(|(_, out)| out));
-        limited_parser(input)
+    let mut limit = take(max_length);
+    move |input: I| {
+        let (input, limited_input) = limit.parse(input)?;
+        parser.parse(limited_input).map(|(_, out)| (input, out))
     }
 }
 
-pub fn tree(mut input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
+fn tree(mut input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
     let mut map = HashMap::new();
 
     loop {
