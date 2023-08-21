@@ -3,14 +3,20 @@ mod error;
 use std::collections::HashMap;
 
 pub use error::*;
-use nom::{bytes::complete::tag, multi::many_till, number::complete::le_u8, IResult};
+use nom::{
+    bytes::complete::{tag, take},
+    combinator::map_res,
+    multi::many_till,
+    number::complete::le_u8,
+    IResult,
+};
 use nom_derive::{Nom, Parse};
 
 #[derive(Debug, Nom)]
 #[nom(LittleEndian)]
 pub struct Vpk {
     pub header: Header,
-    #[nom(Parse = "tree")]
+    #[nom(Parse = "limited(tree, header.tree_length as usize)")]
     pub tree: HashMap<String, Entry>,
 }
 
@@ -21,8 +27,9 @@ pub struct Header {
     pub signature: u32,
     #[nom(Verify = "*version == 1 || *version == 2")]
     pub version: u32,
-    #[nom(Parse = "{ |i| HeaderData::parse(i, version) }")]
-    pub data: HeaderData,
+    pub tree_length: u32,
+    #[nom(Cond = "version == 2")]
+    pub v2: Option<HeaderV2>,
 }
 
 impl Header {
@@ -30,27 +37,12 @@ impl Header {
 }
 
 #[derive(Debug, Nom)]
-#[nom(Selector = "u32")]
 #[nom(LittleEndian)]
-pub enum HeaderData {
-    #[nom(Selector = "1")]
-    V1 { tree_length: u32 },
-    #[nom(Selector = "2")]
-    V2 {
-        tree_length: u32,
-        data_length: u32,
-        archive_md5_length: u32,
-        local_md5_length: u32,
-        signature_length: u32,
-    },
-}
-
-impl HeaderData {
-    pub fn tree_length(&self) -> u32 {
-        match self {
-            Self::V2 { tree_length, .. } | Self::V1 { tree_length, .. } => *tree_length,
-        }
-    }
+pub struct HeaderV2 {
+    pub data_length: u32,
+    pub archive_md5_length: u32,
+    pub local_md5_length: u32,
+    pub signature_length: u32,
 }
 
 #[derive(Debug, Nom)]
@@ -81,6 +73,17 @@ pub fn cstring(input: &[u8]) -> IResult<&[u8], String> {
             input,
             code: nom::error::ErrorKind::IsNot,
         })),
+    }
+}
+
+fn limited<O, F>(parser: F, max_length: usize) -> impl Fn(&[u8]) -> IResult<&[u8], O>
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+{
+    move |input: &[u8]| {
+        let limited = take(max_length);
+        let mut limited_parser = map_res(limited, |data: &[u8]| parser(data).map(|(_, out)| out));
+        limited_parser(input)
     }
 }
 
