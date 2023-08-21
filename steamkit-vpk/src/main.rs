@@ -8,6 +8,6 @@ fn main() {
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
 
-    let (_, vpk) = Vpk::parse(&buf).expect("failed!");
-    println!("{}", vpk.header.tree_length);
+    let (i, vpk) = Vpk::parse(&buf).expect("failed!");
+    println!("{:?}", i.len());
 }

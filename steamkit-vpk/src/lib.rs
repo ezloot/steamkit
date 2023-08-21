@@ -17,6 +17,16 @@ pub struct Vpk {
     pub header: Header,
     #[nom(Parse = "limit(complete(tree), header.tree_length as usize)")]
     pub tree: HashMap<String, Entry>,
+    #[nom(
+        Cond = "header.version == 2 && header.v2.as_ref().unwrap().archive_md5_length > 0",
+        SkipBefore = "header.v2.as_ref().unwrap().data_length",
+        Count = "(header.v2.as_ref().unwrap().archive_md5_length / 28) as usize"
+    )]
+    pub archive_md5s: Option<Vec<ArchiveMD5Entry>>,
+    #[nom(Cond = "header.version == 2 && header.v2.as_ref().unwrap().local_md5_length > 0")]
+    pub local_md5: Option<LocalMD5>,
+    #[nom(Cond = "header.version == 2 && header.v2.as_ref().unwrap().signature_length > 0")]
+    pub signature: Option<Signature>,
 }
 
 #[derive(Debug, Nom)]
@@ -39,9 +49,38 @@ impl Header {
 #[nom(LittleEndian)]
 pub struct HeaderV2 {
     pub data_length: u32,
+    #[nom(Verify = "*archive_md5_length % 28 == 0")]
     pub archive_md5_length: u32,
     pub local_md5_length: u32,
     pub signature_length: u32,
+}
+
+#[derive(Debug, Clone, Nom)]
+#[nom(LittleEndian)]
+pub struct ArchiveMD5Entry {
+    pub archive_index: u32,
+    pub offset: u32,
+    pub length: u32,
+    pub checksum: [u8; 16],
+}
+
+#[derive(Debug, Clone, Nom)]
+#[nom(LittleEndian)]
+pub struct LocalMD5 {
+    pub tree_checksum: [u8; 16],
+    pub archive_md5_checksum: [u8; 16],
+    pub unknown_checksum: [u8; 16],
+}
+
+#[derive(Debug, Nom)]
+#[nom(LittleEndian)]
+pub struct Signature {
+    pub public_key_length: u32,
+    #[nom(Count = "public_key_length")]
+    pub public_key: Vec<u8>,
+    pub signature_length: u32,
+    #[nom(Count = "signature_length")]
+    pub signature: Vec<u8>,
 }
 
 #[derive(Debug, Nom)]
@@ -53,7 +92,7 @@ pub struct DirectoryEntry {
     pub archive_offset: u32,
     pub file_length: u32,
     pub suffix: u16,
-    #[nom(Map = "|payload: &[u8]| payload.to_vec()", Take = "preload_length")]
+    #[nom(Count = "preload_length")]
     pub preload: Vec<u8>,
 }
 
