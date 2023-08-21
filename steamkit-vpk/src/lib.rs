@@ -51,6 +51,7 @@ pub struct HeaderV2 {
     pub data_length: u32,
     #[nom(Verify = "*archive_md5_length % 28 == 0")]
     pub archive_md5_length: u32,
+    #[nom(Verify = "*local_md5_length == 48")]
     pub local_md5_length: u32,
     pub signature_length: u32,
 }
