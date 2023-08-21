@@ -236,7 +236,7 @@ mod tests {
     fn parse_portal2() {
         let buf = get_file_buffer("portal2");
         let result = Vpk::parse(&buf);
-        assert!(result.is_ok(), "failed to parse CS:GO pack");
-        assert!(result.unwrap().0.is_empty(), "failed to fully parse CS:GO pack");
+        assert!(result.is_ok(), "failed to parse Portal 2 pack");
+        assert!(result.unwrap().0.is_empty(), "failed to fully parse Portal 2 pack");
     }
 }
