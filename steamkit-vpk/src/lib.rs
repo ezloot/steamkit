@@ -18,14 +18,14 @@ pub struct Vpk {
     #[nom(Parse = "limit(complete(tree), header.tree_length as usize)")]
     pub tree: HashMap<String, Entry>,
     #[nom(
-        Cond = "header.version == 2 && header.v2.as_ref().unwrap().archive_md5_length > 0",
-        SkipBefore = "header.v2.as_ref().unwrap().data_length",
-        Count = "(header.v2.as_ref().unwrap().archive_md5_length / 28) as usize"
+        Cond = "header.version == 2 && header.archive_md5_length() > 0",
+        SkipBefore = "header.data_length()",
+        Count = "header.archive_md5_length() / 28"
     )]
     pub archive_md5s: Option<Vec<ArchiveMD5Entry>>,
-    #[nom(Cond = "header.version == 2 && header.v2.as_ref().unwrap().local_md5_length > 0")]
+    #[nom(Cond = "header.version == 2 && header.local_md5_length() > 0")]
     pub local_md5: Option<LocalMD5>,
-    #[nom(Cond = "header.version == 2 && header.v2.as_ref().unwrap().signature_length > 0")]
+    #[nom(Cond = "header.version == 2 && header.signature_length() > 0")]
     pub signature: Option<Signature>,
 }
 
@@ -43,6 +43,42 @@ pub struct Header {
 
 impl Header {
     pub const SIGNATURE: u32 = 0x55aa1234;
+
+    fn data_length(&self) -> usize {
+        if self.version == 2 {
+            if let Some(v2) = &self.v2 {
+                return v2.data_length as usize;
+            }
+        }
+        0
+    }
+
+    fn archive_md5_length(&self) -> usize {
+        if self.version == 2 {
+            if let Some(v2) = &self.v2 {
+                return v2.archive_md5_length as usize;
+            }
+        }
+        0
+    }
+
+    fn local_md5_length(&self) -> usize {
+        if self.version == 2 {
+            if let Some(v2) = &self.v2 {
+                return v2.local_md5_length as usize;
+            }
+        }
+        0
+    }
+
+    fn signature_length(&self) -> usize {
+        if self.version == 2 {
+            if let Some(v2) = &self.v2 {
+                return v2.signature_length as usize;
+            }
+        }
+        0
+    }
 }
 
 #[derive(Debug, Nom)]
@@ -171,4 +207,36 @@ fn tree(input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
             m
         },
     )(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::Read};
+
+    use nom_derive::Parse;
+
+    use crate::Vpk;
+
+    fn get_file_buffer(name: &str) -> Vec<u8> {
+        let mut file = File::open(format!("assets/{name}.vpk")).unwrap();
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).unwrap();
+        buf
+    }
+
+    #[test]
+    fn parse_csgo() {
+        let buf = get_file_buffer("csgo");
+        let result = Vpk::parse(&buf);
+        assert!(result.is_ok(), "failed to parse CS:GO pack");
+        assert!(result.unwrap().0.is_empty(), "failed to fully parse CS:GO pack");
+    }
+
+    #[test]
+    fn parse_portal2() {
+        let buf = get_file_buffer("portal2");
+        let result = Vpk::parse(&buf);
+        assert!(result.is_ok(), "failed to parse CS:GO pack");
+        assert!(result.unwrap().0.is_empty(), "failed to fully parse CS:GO pack");
+    }
 }

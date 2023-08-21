@@ -12,6 +12,5 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 """
 
 [dependencies]
-thiserror = "1.0"
 nom = "7.1"
 nom-derive = "0.10"
