@@ -11,7 +11,7 @@ use nom::{
 };
 use nom_derive::{Nom, Parse};
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct Vpk {
     pub header: Header,
@@ -29,7 +29,7 @@ pub struct Vpk {
     pub signature: Option<Signature>,
 }
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct Header {
     #[nom(Verify = "*signature == Self::SIGNATURE")]
@@ -81,7 +81,7 @@ impl Header {
     }
 }
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct HeaderV2 {
     pub data_length: u32,
@@ -92,7 +92,7 @@ pub struct HeaderV2 {
     pub signature_length: u32,
 }
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct ArchiveMD5Entry {
     pub archive_index: u32,
@@ -109,7 +109,7 @@ pub struct LocalMD5 {
     pub unknown_checksum: [u8; 16],
 }
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct Signature {
     pub public_key_length: u32,
@@ -120,7 +120,7 @@ pub struct Signature {
     pub signature: Vec<u8>,
 }
 
-#[derive(Debug, Nom)]
+#[derive(Debug, Clone, Nom)]
 #[nom(LittleEndian)]
 pub struct DirectoryEntry {
     pub crc32: u32,
@@ -133,7 +133,7 @@ pub struct DirectoryEntry {
     pub preload: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Entry {
     pub path: String,
     pub dir_entry: DirectoryEntry,
