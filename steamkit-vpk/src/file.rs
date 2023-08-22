@@ -102,6 +102,6 @@ mod tests {
     #[test]
     fn read_portal2() {
         let result = VpkFile::open("assets/portal2_dir.vpk");
-        assert!(result.is_ok(), "failed to parse CS:GO pack");
+        assert!(result.is_ok(), "failed to parse Portal 2 pack");
     }
 }
