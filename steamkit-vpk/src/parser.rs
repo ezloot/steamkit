@@ -192,6 +192,9 @@ where
 }
 
 fn tree(input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
+    // TODO: This is currently using https://github.com/icewind1991/vpk-rs/blob/perf/src/vpk.rs#L46C1-L46C2
+    // but I will need to use reference files and calculate an a good average for this and add a little buffer.
+    let cap = input.len() / 50;
     map(
         many_till(
             pair(
@@ -206,8 +209,8 @@ fn tree(input: &[u8]) -> IResult<&[u8], HashMap<String, Entry>> {
             ),
             tag(&[0u8]),
         ),
-        |(entries, _)| {
-            let mut m = HashMap::new();
+        move |(entries, _)| {
+            let mut m = HashMap::with_capacity(cap);
             for (ext, (v, _)) in entries {
                 for (dir, (v, _)) in v {
                     for (name, dir_entry) in v {
