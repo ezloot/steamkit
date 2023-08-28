@@ -1,26 +1,25 @@
 mod error;
 
-use std::ops;
-
 pub use error::*;
 use indexmap::IndexMap;
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, is_not},
-    character::complete::{alphanumeric1, char, none_of, not_line_ending, one_of, space0, space1},
-    combinator::{cut, recognize, opt},
-    error::{context, ParseError},
+    bytes::complete::escaped,
+    character::complete::{char, none_of, not_line_ending, one_of, space0, space1},
+    combinator::{cut, map, opt, recognize},
     multi::many1,
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };
 
+#[derive(Debug, Clone)]
 pub struct KeyValue {
     pub key: String,
     pub value: Value,
     pub macro_: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub enum Value {
     String(String),
     Map(IndexMap<String, KeyValue>),
@@ -52,16 +51,35 @@ fn quoted_string(input: &str) -> IResult<&str, &str> {
     )(input)
 }
 
+fn parse_macro(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(char('['), many1(none_of("[]\n")), char(']')))(input)
+}
+
 fn string(input: &str) -> IResult<&str, &str> {
     alt((quoted_string, unquoted_string))(input)
 }
 
-fn key_value(input: &str) -> IResult<&str, (&str, &str, Option<&str>)> {
-    tuple((
-        preceded(space0, string),
-        preceded(space1, string),
-        preceded(space0, opt(comment)),
-    ))(input)
+fn key_value_string(input: &str) -> IResult<&str, KeyValue> {
+    map(
+        tuple((
+            preceded(space0, string),
+            preceded(space1, string),
+            preceded(space1, opt(parse_macro)),
+            preceded(space0, opt(comment)),
+        )),
+        |(key, value, macro_, ..)| KeyValue {
+            key: key.to_owned(),
+            value: Value::String(
+                value
+                    .to_owned()
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\"),
+            ),
+            macro_: macro_.map(|s| s.to_owned()),
+        },
+    )(input)
 }
 
 #[cfg(test)]
@@ -76,6 +94,13 @@ mod tests {
         let mut data = String::new();
         file.read_to_string(&mut data).unwrap();
 
-        println!("{:?}", key_value("\"Hello World\" \"Hello World\"     // hello there!").unwrap().1);
+        if let Value::String(s) =
+            key_value_string("\"Hello World\" \"\\\"\\tHello World \\\\\"  [$123]   // hello there!")
+                .unwrap()
+                .1
+                .value
+        {
+            println!("{s}");
+        }
     }
 }
