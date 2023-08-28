@@ -12,6 +12,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 """
 
 [dependencies]
+nom = "7.1"
 thiserror = "1.0"
 indexmap = "2.0"
 serde = { version = "1.0", optional = true, features = ["derive"] }
