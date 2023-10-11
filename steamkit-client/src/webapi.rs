@@ -3,7 +3,7 @@ use reqwest::{
     Client, StatusCode,
 };
 use serde::{Deserialize, Serialize};
-use steamkit_vdf::Vdf;
+use steamkit_kv::KeyValue;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -15,7 +15,7 @@ pub enum WebApiError {
     #[error("request failed to send: `{0}`")]
     Send(#[from] reqwest::Error),
     #[error("invalid format: `{0}`")]
-    Format(#[from] steamkit_vdf::Error),
+    Format(#[from] steamkit_kv::Error),
     #[error("unknown web api error")]
     Unknown,
 }
@@ -55,7 +55,7 @@ impl WebApi {
         method: &str,
         version: u32,
         query: &S,
-    ) -> Result<Vdf, WebApiError> {
+    ) -> Result<KeyValue, WebApiError> {
         let version = format!("{:04}", version);
         let url = format!("https://api.steampowered.com/{iface}/{method}/v{version}");
         let res = self
@@ -68,15 +68,15 @@ impl WebApi {
 
         if res.status().is_success() {
             let body = res.text().await?;
-            let vdf = Vdf::parse(body)?;
-            Ok(vdf)
+            let kv: KeyValue = KeyValue::parse(&body)?;
+            Ok(kv)
         } else {
             Err(WebApiError::Request(res.status()))
         }
     }
 
     pub async fn get_servers(&self, cell_id: Option<u32>) -> Result<Servers, WebApiError> {
-        let vdf = self
+        let kv = self
             .get(
                 "ISteamDirectory",
                 "GetCMList",
@@ -85,7 +85,7 @@ impl WebApi {
             )
             .await?;
 
-        let node = vdf
+        let node = kv
             .root()
             .lookup("response")?
             .expect("failed to get response from `GetCMList` response")
