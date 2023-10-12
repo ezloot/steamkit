@@ -303,7 +303,42 @@ mod tests {
     }
 
     #[test]
-    fn nested_duplicate_keys() {
+    fn nested_merge_maps() {
+        let input = r#"
+            "root"
+            {
+                "key1"
+                {
+                    "key2"
+                    {
+                        "key3" "value1"
+                    }
+                    "key2"
+                    {
+                        "key4" "value2"
+                    }
+                }
+                "key2" "value3"
+            }
+        "#;
+
+        let kv = KeyValue::parse(input).unwrap();
+        assert_eq!(
+            kv.get(["root", "key1", "key2", "key3"]),
+            Some(&KeyValue::String("value1".into()))
+        );
+        assert_eq!(
+            kv.get(["root", "key1", "key2", "key4"]),
+            Some(&KeyValue::String("value2".into()))
+        );
+        assert_eq!(
+            kv.get(["root", "key2"]),
+            Some(&KeyValue::String("value3".into()))
+        );
+    }
+
+    #[test]
+    fn nested_duplicate_strings() {
         let input = r#"
             "root"
             {
@@ -356,7 +391,33 @@ mod tests {
     }
 
     #[test]
-    fn flat_duplicate_keys() {
+    fn flat_merge_maps() {
+        let input = r#"
+            "root"
+            {
+                "key1"
+                {
+                    "key2"
+                    {
+                        "key3" "value1"
+                    }
+                    "key2"
+                    {
+                        "key4" "value2"
+                    }
+                }
+                "key2" "value3"
+            }
+        "#;
+
+        let kv = FlatKeyValues::parse(input).unwrap();
+        assert_eq!(kv.get_str(["root", "key1", "key2", "key3"]), Some("value1"));
+        assert_eq!(kv.get_str(["root", "key1", "key2", "key4"]), Some("value2"));
+        assert_eq!(kv.get_str(["root", "key2"]), Some("value3"));
+    }
+
+    #[test]
+    fn flat_duplicate_strings() {
         let input = r#"
             "root"
             {
