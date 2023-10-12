@@ -31,20 +31,18 @@ fn merge(entries: Vec<parser::Entry>) -> IndexMap<String, KeyValue> {
 
     for entry in entries {
         match map.entry(entry.key) {
-            indexmap::map::Entry::Occupied(mut occupied) => {
-                match entry.value {
-                    parser::Value::String(s) => {
-                        *occupied.get_mut() = KeyValue::String(s);
-                    }
-                    parser::Value::Map(new_entries) => {
-                        if let KeyValue::Map(existing_map) = occupied.get_mut() {
-                            existing_map.extend(merge(new_entries));
-                        } else {
-                            *occupied.get_mut() = KeyValue::Map(merge(new_entries));
-                        }
+            indexmap::map::Entry::Occupied(mut occupied) => match entry.value {
+                parser::Value::String(s) => {
+                    *occupied.get_mut() = KeyValue::String(s);
+                }
+                parser::Value::Map(new_entries) => {
+                    if let KeyValue::Map(existing_map) = occupied.get_mut() {
+                        existing_map.extend(merge(new_entries));
+                    } else {
+                        *occupied.get_mut() = KeyValue::Map(merge(new_entries));
                     }
                 }
-            }
+            },
             indexmap::map::Entry::Vacant(vacant) => {
                 let kv = match entry.value {
                     parser::Value::String(s) => KeyValue::String(s),
@@ -132,6 +130,49 @@ pub struct FlatKeyValues {
     map: HashMap<Path, String>,
 }
 
+impl From<KeyValue> for FlatKeyValues {
+    fn from(kv: KeyValue) -> Self {
+        // calculate necessary map capacity
+        let mut capacity = 0;
+
+        // since this is just a guess, we don't care above duplicate keys
+        fn calculate_capacity(kv: &KeyValue, capacity: &mut usize) {
+            match kv {
+                KeyValue::String(_) => *capacity += 1,
+                KeyValue::Map(entries) => {
+                    for kv in entries.values() {
+                        calculate_capacity(kv, capacity);
+                    }
+                }
+            }
+        }
+
+        calculate_capacity(&kv, &mut capacity);
+
+        let mut map = HashMap::with_capacity(capacity);
+
+        fn process(map: &mut HashMap<Path, String>, kv: KeyValue, path: &mut Path) {
+            match kv {
+                KeyValue::String(s) => {
+                    map.insert(path.clone(), s);
+                }
+                KeyValue::Map(entries) => {
+                    for (key, kv) in entries {
+                        path.push(key);
+                        process(map, kv, path);
+                        path.pop();
+                    }
+                }
+            }
+        }
+
+        // this is a guess at the capacity, not sure what needs more than 10 levels of nesting
+        process(&mut map, kv, &mut Vec::with_capacity(10));
+
+        Self { map }
+    }
+}
+
 impl FlatKeyValues {
     pub fn parse(input: &str) -> Result<Self> {
         let (input, entry) = parser::key_value(input.trim()).map_err(|_| Error::Parse)?;
@@ -164,9 +205,12 @@ impl FlatKeyValues {
 
             match entry.value {
                 parser::Value::String(s) => {
+                    // BUG: if a lower-level key is inserted after a higher-level key, the higher level key will stay in the map
                     map.insert(path.clone(), s);
                 }
                 parser::Value::Map(entries) => {
+                    map.remove(path);
+
                     for entry in entries {
                         process(map, entry, path);
                     }
@@ -235,7 +279,7 @@ mod tests {
     const LARGE_DATA: &str = include_str!("../assets/items_game.txt");
 
     #[test]
-    fn parse_nested() {
+    fn nested() {
         let input = r#"
             "key1"
             {
@@ -259,7 +303,29 @@ mod tests {
     }
 
     #[test]
-    fn parse_nested_large() {
+    fn nested_duplicate_keys() {
+        let input = r#"
+            "root"
+            {
+                "key1" "value1"
+                "key1" "value2"
+                "key2" "value3"
+            }
+        "#;
+
+        let kv = KeyValue::parse(input).unwrap();
+        assert_eq!(
+            kv.get(["root", "key1"]),
+            Some(&KeyValue::String("value2".into()))
+        );
+        assert_eq!(
+            kv.get(["root", "key2"]),
+            Some(&KeyValue::String("value3".into()))
+        );
+    }
+
+    #[test]
+    fn nested_large() {
         let kv = KeyValue::parse(LARGE_DATA).unwrap();
         assert_eq!(
             kv.get(["items_game", "game_info", "first_valid_item_slot"]),
@@ -272,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_flat() {
+    fn flat() {
         let input = r#"
             "key1"
             {
@@ -290,8 +356,38 @@ mod tests {
     }
 
     #[test]
-    fn parse_flat_large() {
+    fn flat_duplicate_keys() {
+        let input = r#"
+            "root"
+            {
+                "key1" "value1"
+                "key1" "value2"
+                "key2" "value3"
+            }
+        "#;
+
+        let kv = FlatKeyValues::parse(input).unwrap();
+        assert_eq!(kv.get_str(["root", "key1"]), Some("value2"));
+        assert_eq!(kv.get_str(["root", "key2"]), Some("value3"));
+        println!("{}", kv.len());
+    }
+
+    #[test]
+    fn flat_large() {
         let kv = FlatKeyValues::parse(LARGE_DATA).unwrap();
+        assert_eq!(
+            kv.get_str(["items_game", "game_info", "first_valid_item_slot"]),
+            Some("0")
+        );
+        assert_eq!(
+            kv.get_str(["items_game", "items", "507", "name"]),
+            Some("weapon_knife_karambit")
+        );
+    }
+
+    #[test]
+    fn flat_from_nested_large() {
+        let kv = FlatKeyValues::from(KeyValue::parse(LARGE_DATA).unwrap());
         assert_eq!(
             kv.get_str(["items_game", "game_info", "first_valid_item_slot"]),
             Some("0")
