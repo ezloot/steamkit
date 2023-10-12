@@ -32,15 +32,15 @@ fn merge(entries: Vec<parser::Entry>) -> IndexMap<String, KeyValue> {
     for entry in entries {
         match map.entry(entry.key) {
             indexmap::map::Entry::Occupied(mut occupied) => {
-                match &entry.value {
+                match entry.value {
                     parser::Value::String(s) => {
-                        *occupied.get_mut() = KeyValue::String(s.clone());
+                        *occupied.get_mut() = KeyValue::String(s);
                     }
                     parser::Value::Map(new_entries) => {
                         if let KeyValue::Map(existing_map) = occupied.get_mut() {
-                            existing_map.extend(merge(new_entries.clone()));
+                            existing_map.extend(merge(new_entries));
                         } else {
-                            *occupied.get_mut() = KeyValue::Map(merge(new_entries.clone()));
+                            *occupied.get_mut() = KeyValue::Map(merge(new_entries));
                         }
                     }
                 }
