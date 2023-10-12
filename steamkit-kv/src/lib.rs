@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 
 pub type Path = Vec<String>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyValue {
     String(String),
     Map(IndexMap<String, Self>),
@@ -127,7 +127,7 @@ impl KeyValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlatKeyValues {
     map: HashMap<Path, String>,
 }
