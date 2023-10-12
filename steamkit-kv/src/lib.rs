@@ -369,7 +369,6 @@ mod tests {
         let kv = FlatKeyValues::parse(input).unwrap();
         assert_eq!(kv.get_str(["root", "key1"]), Some("value2"));
         assert_eq!(kv.get_str(["root", "key2"]), Some("value3"));
-        println!("{}", kv.len());
     }
 
     #[test]
