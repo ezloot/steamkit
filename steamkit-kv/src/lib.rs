@@ -242,7 +242,7 @@ mod test {
             }
         "#;
 
-        let kv = FlatKeyValue::parse(input).unwrap();
+        let kv = FlatKeyValues::parse(input).unwrap();
         assert_eq!(kv.get_str(&["key1", "key2"]), Some("value1"));
         assert_eq!(kv.get_str(&["key1", "key3", "key4"]), Some("value2"));
     }
