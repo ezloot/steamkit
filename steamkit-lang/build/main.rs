@@ -29,6 +29,10 @@ fn main() {
                 continue;
             }
 
+            // TODO: go through the document and build a list of imports (support nesting but make sure to not loop indefinitely)
+            // TODO: when generating type information, if referencing a foreign type (from an import) and add to a list of "used" import-types
+            // TODO: using the import-types list, in the header of the rust codegen file, add the appropriate use statements
+
             let mut path = out_dir.clone();
             path.push(format!("{module}.rs"));
 
@@ -37,6 +41,7 @@ fn main() {
             fs::write(path, content).unwrap();
         }
     }
+
 
     // create mod.rs file for all sub-modules
     let mut path = out_dir;
