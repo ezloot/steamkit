@@ -1,0 +1,7 @@
+digraph {
+    0 [ label = "Enum { name: \"EAccountType\", flags: false }" ]
+    1 [ label = "EnumVariant { name: \"Invalid\", removed: false, obsolete: false, reason: None, comment: None }" ]
+    2 [ label = "EnumVariant { name: \"Ok\", removed: false, obsolete: false, reason: None, comment: None }" ]
+    0 -> 1 [ label = "EnumVariant(\"Invalid\")" ]
+    0 -> 2 [ label = "EnumVariant(\"Ok\")" ]
+}
