@@ -1,47 +1,80 @@
+mod parser;
+mod generator;
+
 use std::fmt::{Display, Formatter};
 use std::fs;
-use petgraph::dot::{Dot, Config};
-use petgraph::Graph;
-use std::fs::File;
-use dot::render;
+use petgraph::prelude::*;
 
 fn main() {
+    let modules = vec!["emsg", "enums", "eresult", "steammsg"];
     let mut graph = Graph::<Node, NodeEdge>::new();
 
-    let module = graph.add_node(Node::Module {
-        name: "Steam".to_owned(),
-    });
+    for module_name in modules {
+        let path = format!("assets/SteamKit/Resources/SteamLanguage/{module_name}.steamd");
+        let content = fs::read_to_string(&path).unwrap();
 
-    let enum_ = graph.add_node(Node::Enum {
-        name: "EAccountType".to_owned(),
-        flags: false,
-    });
+        if let Ok((_, document)) = parser::document(&content) {
+            if document.entries.is_empty() {
+                continue;
+            }
 
-    let invalid = graph.add_node(Node::EnumVariant {
-        name: "Invalid".to_owned(),
-        removed: false,
-        obsolete: false,
-        reason: None,
-        comment: None,
-    });
+            let module = graph.add_node(Node::Module(Module {
+                name: module_name.to_owned(),
+            }));
 
+            // TODO: first step is to build a graph of the document without any imports
+            for entry in document.entries {
+                match entry {
+                    parser::DocumentEntry::Enum(enum_) => {
+                        let node = graph.add_node(Node::Enum(Enum {
+                            name: enum_.name.to_owned(),
+                            flags: enum_.flags,
+                        }));
 
-    let ok = graph.add_node(Node::EnumVariant {
-        name: "Ok".to_owned(),
-        removed: false,
-        obsolete: false,
-        reason: None,
-        comment: None,
-    });
+                        graph.add_edge(module, node, NodeEdge::Enum);
 
-    graph.add_edge(module, enum_, NodeEdge::Enum);
-    graph.add_edge(enum_, invalid, NodeEdge::EnumVariant("Invalid".to_owned()));
-    graph.add_edge(enum_, ok, NodeEdge::EnumVariant("Ok".to_owned()));
+                        for variant in enum_.variants {
+                            let variant_node = graph.add_node(Node::EnumVariant(EnumVariant {
+                                name: variant.name.to_owned(),
+                                removed: variant.removed,
+                                obsolete: variant.obsolete,
+                                reason: variant.reason,
+                                comment: variant.comment,
+                            }));
 
-    println!("{:?}", graph.edges(enum_).collect::<Vec<_>>());
+                            graph.add_edge(node, variant_node, NodeEdge::EnumVariant(variant.name.to_owned()));
+                        }
+                    }
+                    parser::DocumentEntry::Class(class) => {
+                        let node = graph.add_node(Node::Class(Class {
+                            name: class.name.to_owned(),
+                            generic: class.generic,
+                            removed: class.removed,
+                        }));
 
-    let dot_string = format!("{:?}", Dot::with_config(&graph, &[]));
-    fs::write("test.dot", dot_string).unwrap();
+                        graph.add_edge(module, node, NodeEdge::Class);
+
+                        for member in class.members {
+                            let member_node = graph.add_node(Node::ClassMember(ClassMember {
+                                name: member.name.to_owned(),
+                                modifier: member.modifier,
+                                constant: member.constant,
+                            }));
+
+                            graph.add_edge(node, member_node, NodeEdge::ClassMember(member.name.to_owned()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // TODO: second step is to go through the graph and add imports to module for any external types (that exist in the list of imports)
+
+            let mut writer = String::new();
+            generator::generate(&graph, module, &mut writer);
+            fs::write(format!("generated/{module_name}.rs.txt"), writer).unwrap();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +84,8 @@ pub enum NodeEdge {
     Import(String),
     Class,
     Enum,
+    Generic,
+    Module,
 }
 
 impl Display for NodeEdge {
@@ -60,38 +95,56 @@ impl Display for NodeEdge {
 }
 
 #[derive(Debug, Clone)]
+pub struct Module {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Enum {
+    pub name: String,
+    pub flags: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumVariant {
+    pub name: String,
+    pub removed: bool,
+    pub obsolete: bool,
+    pub reason: Option<String>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Class {
+    name: String,
+    generic: Option<String>,
+    removed: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClassMember {
+    name: String,
+    modifier: Option<String>,
+    constant: bool,
+}
+
+#[derive(Debug, Clone)]
 pub enum Node {
-    Module {
-        name: String,
-    },
-    Import(String),
-    Enum {
-        name: String,
-        flags: bool,
-    },
-    EnumVariant {
-        name: String,
-        removed: bool,
-        obsolete: bool,
-        reason: Option<String>,
-        comment: Option<String>,
-    },
-    EnumVariantValue {},
-    Class {
-        name: String,
-        generic: Option<String>,
-        removed: bool,
-    },
-    ClassMember {
-        name: String,
-        // type_: String,
-        modifier: Option<String>,
-        constant: bool,
-    },
-    ClassMemberValue {},
-    Typing {
-        // TODO: Figure out how to represent typings?
-    },
+    Module(Module),
+    Import(NodeIndex),
+    Enum(Enum),
+    EnumVariant(EnumVariant),
+    // EnumVariantValue {},
+    Class(Class),
+    ClassMember(ClassMember),
+    // ClassMemberValue {},
+    // Typing {
+    //     // TODO: Figure out how to represent typings?
+    // },
+    // Value {
+    //     // TODO: Figure out how to represent values?
+    //     // Maybe use a boxed trait?
+    // },
 }
 
 impl Display for Node {
