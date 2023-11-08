@@ -1,9 +1,12 @@
-mod parser;
 mod generator;
+mod parser;
 
+use once_cell::sync::Lazy;
+use petgraph::prelude::*;
+use regex::Regex;
 use std::fmt::{Display, Formatter};
 use std::fs;
-use petgraph::prelude::*;
+use std::str::FromStr;
 
 fn main() {
     let modules = vec!["emsg", "enums", "eresult", "steammsg"];
@@ -29,6 +32,7 @@ fn main() {
                         let node = graph.add_node(Node::Enum(Enum {
                             name: enum_.name.to_owned(),
                             flags: enum_.flags,
+                            type_: DataType::from(enum_.generic.unwrap_or("int".into()).as_ref()),
                         }));
 
                         graph.add_edge(module, node, NodeEdge::Enum);
@@ -42,7 +46,11 @@ fn main() {
                                 comment: variant.comment,
                             }));
 
-                            graph.add_edge(node, variant_node, NodeEdge::EnumVariant(variant.name.to_owned()));
+                            graph.add_edge(
+                                node,
+                                variant_node,
+                                NodeEdge::EnumVariant(variant.name.to_owned()),
+                            );
                         }
                     }
                     parser::DocumentEntry::Class(class) => {
@@ -59,9 +67,14 @@ fn main() {
                                 name: member.name.to_owned(),
                                 modifier: member.modifier,
                                 constant: member.constant,
+                                type_: DataType::from(member.type_.as_str()),
                             }));
 
-                            graph.add_edge(node, member_node, NodeEdge::ClassMember(member.name.to_owned()));
+                            graph.add_edge(
+                                node,
+                                member_node,
+                                NodeEdge::ClassMember(member.name.to_owned()),
+                            );
                         }
                     }
                     _ => {}
@@ -103,6 +116,7 @@ pub struct Module {
 pub struct Enum {
     pub name: String,
     pub flags: bool,
+    pub type_: DataType,
 }
 
 #[derive(Debug, Clone)]
@@ -116,16 +130,17 @@ pub struct EnumVariant {
 
 #[derive(Debug, Clone)]
 pub struct Class {
-    name: String,
-    generic: Option<String>,
-    removed: bool,
+    pub name: String,
+    pub generic: Option<String>,
+    pub removed: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct ClassMember {
-    name: String,
-    modifier: Option<String>,
-    constant: bool,
+    pub name: String,
+    pub modifier: Option<String>,
+    pub constant: bool,
+    pub type_: DataType,
 }
 
 #[derive(Debug, Clone)]
@@ -150,5 +165,54 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{:?}", self))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataType {
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F32,
+    F64,
+    Reference(String),
+    FixedLengthArray {
+        type_: Box<Self>,
+        length: usize,
+    },
+}
+
+impl From<&str> for DataType {
+    fn from(s: &str) -> Self {
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?<type>[^<>]+)<(?<length>\d+)>").unwrap());
+
+        if let Some(captures) = RE.captures(s) {
+            let type_ = captures.name("type").unwrap().as_str();
+            let length = captures.name("length").unwrap().as_str();
+
+            return Self::FixedLengthArray {
+                type_: Box::new(Self::from(type_)),
+                length: usize::from_str(length).unwrap(),
+            };
+        }
+
+        match s {
+            "byte" => Self::U8,
+            "ushort" => Self::U16,
+            "uint" => Self::U32,
+            "ulong" => Self::U64,
+            "char" => Self::I8,
+            "short" => Self::I16,
+            "int" => Self::I32,
+            "long" => Self::I64,
+            "float" => Self::F32,
+            "double" => Self::F64,
+            _ => Self::Reference(s.to_owned()),
+        }
     }
 }
