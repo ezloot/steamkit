@@ -3,6 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/steamkit-lang/assets/SteamKit" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/steamkit-lang/assets/SteamKit/Resources/Protobufs" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/steamkit-protos/assets/Protobufs" vcs="Git" />
   </component>
 </project>
