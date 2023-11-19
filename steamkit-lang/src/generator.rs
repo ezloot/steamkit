@@ -73,6 +73,19 @@ fn generate_enum_variant(graph: &Graph<Node, NodeEdge>, node_idx: NodeIndex, fla
 
     if flags {
         let name = variant.name.to_shouty_snake_case();
+        // let value = match &variant.value {
+        //     crate::parser::EnumValue::Number(num) => num.to_string(),
+        //     crate::parser::EnumValue::Hex(hex) => format!("0x{hex}"),
+        //     crate::parser::EnumValue::Or(list) => list
+        //         .iter()
+        //         .map(|name| {
+        //             let name = name.to_shouty_snake_case();
+        //             format!("Self::{name}.bits()")
+        //         })
+        //         .collect::<Vec<_>>()
+        //         .join(" | "),
+        // };
+
         writer.push_str("        ");
 
         if variant.removed {
@@ -121,6 +134,6 @@ pub fn generate(graph: &Graph<Node, NodeEdge>, node_idx: NodeIndex, writer: &mut
     match node {
         Node::Module(_) => generate_module(graph, node_idx, writer),
         Node::Enum(_) => generate_enum(graph, node_idx, writer),
-        _ => {}
+        _ => panic!()
     }
 }

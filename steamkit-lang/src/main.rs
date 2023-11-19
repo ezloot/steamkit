@@ -1,12 +1,15 @@
 mod generator;
 mod parser;
 
+use std::collections::HashMap;
 use once_cell::sync::Lazy;
 use petgraph::prelude::*;
 use regex::Regex;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::str::FromStr;
+use petgraph::data::DataMap;
+use petgraph::visit::{Data, IntoEdges};
 
 fn main() {
     let modules = vec!["emsg", "enums", "eresult", "steammsg"];
@@ -49,7 +52,7 @@ fn main() {
                             graph.add_edge(
                                 node,
                                 variant_node,
-                                NodeEdge::EnumVariant(variant.name.to_owned()),
+                                NodeEdge::EnumVariant,
                             );
                         }
                     }
@@ -73,7 +76,7 @@ fn main() {
                             graph.add_edge(
                                 node,
                                 member_node,
-                                NodeEdge::ClassMember(member.name.to_owned()),
+                                NodeEdge::ClassMember,
                             );
                         }
                     }
@@ -81,7 +84,35 @@ fn main() {
                 }
             }
 
-            // TODO: second step is to go through the graph and add imports to module for any external types (that exist in the list of imports)
+            let mut ref_map = HashMap::new();
+
+            let classes_and_enums = graph.edge_references()
+                .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Class || *edge_ref.weight() == NodeEdge::Enum)
+                .map(|edge_ref| edge_ref.target());
+
+            for node_idx in classes_and_enums {
+                match &graph[node_idx] {
+                    Node::Class(class) => { ref_map.insert(class.name.to_owned(), node_idx); }
+                    Node::Enum(enum_) => { ref_map.insert(enum_.name.to_owned(), node_idx); }
+                    _ => {}
+                }
+            }
+
+            let class_members = graph.edge_references()
+                .filter(|edge_ref| *edge_ref.weight() == NodeEdge::ClassMember)
+                .map(|edge_ref| edge_ref.target())
+                .collect::<Vec<_>>();
+
+            for node_idx in class_members {
+                let Node::ClassMember(member) = &graph[node_idx] else { continue; };
+                let DataType::Reference(ref_str) = &member.type_ else { continue; };
+
+                if let Some(target_node_idx) = ref_map.get(ref_str) {
+                    graph.add_edge(node_idx, node_idx, NodeEdge::DataTypeReference);
+                } else {
+                    panic!("unknown reference data type: {ref_str}");
+                }
+            }
 
             let mut writer = String::new();
             generator::generate(&graph, module, &mut writer);
@@ -90,15 +121,16 @@ fn main() {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeEdge {
-    EnumVariant(String),
-    ClassMember(String),
-    Import(String),
+    EnumVariant,
+    ClassMember,
+    Import,
     Class,
     Enum,
     Generic,
     Module,
+    DataTypeReference,
 }
 
 impl Display for NodeEdge {
@@ -216,3 +248,70 @@ impl From<&str> for DataType {
         }
     }
 }
+
+
+/*
+
+when generating the typing imports, run after first initial pass so we know the entire hierarchy
+
+make a map of all local types
+
+type TypeName = String;
+enum TypeImport {
+    Local,
+    External(NodeRef), // <-- this will point to the actual typing node (since we don't know the new names yet)
+    // it's the job of the generator to have a name map that will map the old names to the new names
+    //
+}
+
+Map<Name, TypeImport>
+
+rules:
+enum types can not be reference types
+
+pseudo code when generating code for struct member
+
+context:
+
+mod 1:
+Mod1Test1 {
+    local_test2: Mod1Test2,
+    external_test2: Mod2Test2,
+},
+Mod1Test2,
+
+mod 2:
+Mod2Test1,
+Mod2Test2,
+
+we're generating code for Mod1Test1 -> local_test2
+
+Mod1Test2 is local so it is a local reference/import
+
+Mod2Test2 is  an external reference so it needs an external import
+
+we can figure this out by comparing the node ref to the current module node ref to see if it's the same or not
+if it's not then we will include the import
+
+we could have a flat map and a counter for how many times it's referenced ?
+
+we need a flat map of all module names & structs/enums/fields so we can map when generating code
+we could do this after mapping the data type nodes to the graph
+
+graph:
+add modules
+-> add enums & classes
+  -> add variants and members
+-> add data type node to class members
+
+RefLocation {
+    name: String,
+    module: NodeRef,
+    type_: NodeRef,
+}
+
+this would be how we keep track of the new names for codegen after graphing
+
+Map<RefLocation, RefLocation>
+
+ */
