@@ -14,6 +14,7 @@ use petgraph::visit::{Data, IntoEdges};
 fn main() {
     let modules = vec!["emsg", "enums", "eresult", "steammsg"];
     let mut graph = Graph::<Node, NodeEdge>::new();
+    let root = graph.add_node(Node::Root);
 
     for module_name in modules {
         let path = format!("assets/SteamKit/Resources/SteamLanguage/{module_name}.steamd");
@@ -27,6 +28,8 @@ fn main() {
             let module = graph.add_node(Node::Module(Module {
                 name: module_name.to_owned(),
             }));
+
+            graph.add_edge(root, module, NodeEdge::Module);
 
             // TODO: first step is to build a graph of the document without any imports
             for entry in document.entries {
@@ -84,41 +87,61 @@ fn main() {
                 }
             }
 
-            let mut ref_map = HashMap::new();
+            // let mut ref_map = HashMap::new();
+            //
+            // let classes_and_enums = graph.edge_references()
+            //     .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Class || *edge_ref.weight() == NodeEdge::Enum)
+            //     .map(|edge_ref| edge_ref.target());
+            //
+            // for node_idx in classes_and_enums {
+            //     match &graph[node_idx] {
+            //         Node::Class(class) => { ref_map.insert(class.name.to_owned(), node_idx); }
+            //         Node::Enum(enum_) => { ref_map.insert(enum_.name.to_owned(), node_idx); }
+            //         _ => {}
+            //     }
+            // }
 
-            let classes_and_enums = graph.edge_references()
-                .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Class || *edge_ref.weight() == NodeEdge::Enum)
-                .map(|edge_ref| edge_ref.target());
+            // let class_members = graph.edge_references()
+            //     .filter(|edge_ref| *edge_ref.weight() == NodeEdge::ClassMember)
+            //     .map(|edge_ref| edge_ref.target())
+            //     .collect::<Vec<_>>();
 
-            for node_idx in classes_and_enums {
-                match &graph[node_idx] {
-                    Node::Class(class) => { ref_map.insert(class.name.to_owned(), node_idx); }
-                    Node::Enum(enum_) => { ref_map.insert(enum_.name.to_owned(), node_idx); }
-                    _ => {}
-                }
-            }
+            // map of all modules and all classes/enums (including imports)
+            // let module_data_structures = HashMap::<NodeIndex, HashMap<String, NodeIndex>>::new();
 
-            let class_members = graph.edge_references()
-                .filter(|edge_ref| *edge_ref.weight() == NodeEdge::ClassMember)
-                .map(|edge_ref| edge_ref.target())
-                .collect::<Vec<_>>();
+            // for node_idx in class_members {
+            //     let Node::ClassMember(member) = &graph[node_idx] else { continue; };
+            //     let DataType::Reference(ref_str) = &member.type_ else { continue; };
 
-            for node_idx in class_members {
-                let Node::ClassMember(member) = &graph[node_idx] else { continue; };
-                let DataType::Reference(ref_str) = &member.type_ else { continue; };
 
-                if let Some(target_node_idx) = ref_map.get(ref_str) {
-                    graph.add_edge(node_idx, node_idx, NodeEdge::DataTypeReference);
-                } else {
-                    panic!("unknown reference data type: {ref_str}");
-                }
-            }
+                //
+                // if let Some(target_node_idx) = ref_map.get(ref_str) {
+                //     graph.add_edge(node_idx, node_idx, NodeEdge::DataTypeReference);
+                // } else {
+                //     panic!("unknown reference data type: {ref_str}");
+                // }
+            // }
 
-            let mut writer = String::new();
-            generator::generate(&graph, module, &mut writer);
-            fs::write(format!("generated/{module_name}.rs.txt"), writer).unwrap();
+            // let mut writer = String::new();
+            // generator::generate/(&graph, module, &mut writer);
+            // fs::write(format!("generated/{module_name}.rs.txt"), writer).unwrap();
         }
     }
+
+    generate_context_map(&graph);
+}
+
+fn generate_context_map(graph: &Graph<Node, NodeEdge>) {
+    let module_nodes = graph.edge_references()
+        .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Module)
+        .map(|edge_ref| edge_ref.target())
+        .collect::<Vec<_>>();
+
+    for module_node in module_nodes {
+
+    }
+
+    println!("{:?}", module_nodes);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,6 +200,7 @@ pub struct ClassMember {
 
 #[derive(Debug, Clone)]
 pub enum Node {
+    Root,
     Module(Module),
     Import(NodeIndex),
     Enum(Enum),
