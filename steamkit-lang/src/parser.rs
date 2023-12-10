@@ -11,10 +11,10 @@ use nom::{
 };
 
 #[derive(Debug, Clone)]
-pub enum EnumValue {
+pub enum EnumVariantValue {
     Number(String),
     Hex(String),
-    Or(Vec<String>),
+    Union(Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ pub struct EnumVariant {
     pub obsolete: bool,
     pub reason: Option<String>,
     pub comment: Option<String>,
-    pub value: EnumValue,
+    pub value: EnumVariantValue,
 }
 
 #[derive(Debug, Clone)]
@@ -95,15 +95,15 @@ fn parse_type(input: &str) -> IResult<&str, &str> {
     )))(input)
 }
 
-fn enum_variant_value(input: &str) -> IResult<&str, EnumValue> {
+fn enum_variant_value(input: &str) -> IResult<&str, EnumVariantValue> {
     alt((
-        map(hex, |hex| EnumValue::Hex(hex.to_owned())),
+        map(hex, |hex| EnumVariantValue::Hex(hex.to_owned())),
         map(recognize(tuple((opt(tag("-")), digit1))), |num: &str| {
-            EnumValue::Number(num.to_owned())
+            EnumVariantValue::Number(num.to_owned())
         }),
         map(
             separated_list1(tuple((multispace0, tag("|"), multispace0)), identifier),
-            |list| EnumValue::Or(list.into_iter().map(str::to_owned).collect()),
+            |list| EnumVariantValue::Union(list.into_iter().map(str::to_owned).collect()),
         ),
     ))(input)
 }

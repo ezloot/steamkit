@@ -6,8 +6,9 @@ use once_cell::sync::Lazy;
 use petgraph::prelude::*;
 use regex::Regex;
 use std::fmt::{Display, Formatter};
-use std::fs;
+use std::{fs, ops};
 use std::str::FromStr;
+use heck::ToShoutySnakeCase;
 use petgraph::data::DataMap;
 use petgraph::visit::{Data, IntoEdges};
 
@@ -45,11 +46,12 @@ fn main() {
 
                         for variant in enum_.variants {
                             let variant_node = graph.add_node(Node::EnumVariant(EnumVariant {
-                                name: variant.name.to_owned(),
+                                name: variant.name.to_shouty_snake_case(),
                                 removed: variant.removed,
                                 obsolete: variant.obsolete,
                                 reason: variant.reason,
                                 comment: variant.comment,
+                                value: variant.value.into(),
                             }));
 
                             graph.add_edge(
@@ -122,27 +124,27 @@ fn main() {
                 // }
             // }
 
-            // let mut writer = String::new();
-            // generator::generate/(&graph, module, &mut writer);
-            // fs::write(format!("generated/{module_name}.rs.txt"), writer).unwrap();
+            let mut writer = String::new();
+            generator::generate(&graph, module, &mut writer);
+            fs::write(format!("generated/{module_name}.rs"), writer).unwrap();
         }
     }
 
-    generate_context_map(&graph);
+    // generate_context_map(&graph);
 }
 
-fn generate_context_map(graph: &Graph<Node, NodeEdge>) {
-    let module_nodes = graph.edge_references()
-        .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Module)
-        .map(|edge_ref| edge_ref.target())
-        .collect::<Vec<_>>();
-
-    for module_node in module_nodes {
-
-    }
-
-    println!("{:?}", module_nodes);
-}
+// fn generate_context_map(graph: &Graph<Node, NodeEdge>) {
+//     let module_nodes = graph.edge_references()
+//         .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Module)
+//         .map(|edge_ref| edge_ref.target())
+//         .collect::<Vec<_>>();
+//
+//     for module_node in module_nodes {
+//
+//     }
+//
+//     println!("{:?}", module_nodes);
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeEdge {
@@ -181,6 +183,24 @@ pub struct EnumVariant {
     pub obsolete: bool,
     pub reason: Option<String>,
     pub comment: Option<String>,
+    pub value: EnumVariantValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum EnumVariantValue {
+    Number(String),
+    Hex(String),
+    Union(Vec<String>),
+}
+
+impl From<parser::EnumVariantValue> for EnumVariantValue {
+    fn from(value: parser::EnumVariantValue) -> Self {
+        match value {
+            parser::EnumVariantValue::Number(num) => Self::Number(num),
+            parser::EnumVariantValue::Hex(hex) => Self::Hex(hex),
+            parser::EnumVariantValue::Union(list) => Self::Union(list.into_iter().map(|name| name.to_shouty_snake_case()).collect()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
