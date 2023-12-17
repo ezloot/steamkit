@@ -1,6 +1,5 @@
 mod generator;
 mod parser;
-mod util;
 
 use anyhow::Context;
 use heck::ToShoutySnakeCase;
