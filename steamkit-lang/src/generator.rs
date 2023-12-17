@@ -189,6 +189,6 @@ pub fn generate(graph: &Graph<Node, NodeEdge>, node_idx: NodeIndex, writer: &mut
     match node {
         Node::Module(_) => generate_module(graph, node_idx, writer),
         Node::Enum(_) => generate_enum(graph, node_idx, writer),
-        e => println!("Unexpected: {e:?}"),
+        e => println!("unexpected: {e:?}"),
     }
 }

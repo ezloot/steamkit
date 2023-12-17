@@ -209,9 +209,30 @@ fn build_type_nodes(graph: &mut Graph<Node, NodeEdge>, root: NodeIndex) {
     }
 }
 
+fn generate_graph(graph: &mut Graph<Node, NodeEdge>, root: NodeIndex) -> anyhow::Result<()> {
+    let modules = graph
+        .neighbors_directed(root, Direction::Outgoing)
+        .filter(|node_idx| graph[*node_idx].is_module())
+        .collect::<Vec<_>>();
+
+    for module in modules {
+        let Node::Module(Module { name, .. } )= &graph[module] else {
+            continue;
+        };
+
+        let mut writer = String::new();
+        generator::generate(graph, module, &mut writer);
+
+        fs::write(format!("generated/{name}.rs"), writer)?;
+    }
+
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let (mut graph, root) = build_graph()?;
     build_type_nodes(&mut graph, root);
+    generate_graph(&mut graph, root)?;
 
     Ok(())
 }
