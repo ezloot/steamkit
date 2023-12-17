@@ -1,136 +1,145 @@
 mod generator;
 mod parser;
+mod util;
 
-use std::collections::HashMap;
+use anyhow::Context;
+use heck::ToShoutySnakeCase;
 use once_cell::sync::Lazy;
 use petgraph::prelude::*;
 use regex::Regex;
-use std::fmt::{Display, Formatter};
-use std::{fs, ops};
-use std::str::FromStr;
-use heck::ToShoutySnakeCase;
-use petgraph::data::DataMap;
-use petgraph::visit::{Data, IntoEdges};
 
-fn main() {
-    let modules = vec!["emsg", "enums", "eresult", "steammsg"];
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::fs;
+use std::str::FromStr;
+
+fn get_modules() -> anyhow::Result<HashMap<String, String>> {
+    let mut m = HashMap::new();
+    let dir = fs::read_dir("assets/SteamKit/Resources/SteamLanguage")?;
+    for entry in dir {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            continue;
+        }
+
+        // make sure valid extension
+        if entry.path().extension().is_none() || entry.path().extension().unwrap() != "steamd" {
+            continue;
+        }
+
+        let name = entry
+            .path()
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .context("invalid file stem")?
+            .to_owned();
+        m.insert(name, fs::read_to_string(&entry.path())?);
+    }
+    Ok(m)
+}
+
+fn main() -> anyhow::Result<()> {
+    let modules = get_modules()?;
+
+    println!("Found {} modules!", modules.len());
+
+    // let modules = vec![];
     let mut graph = Graph::<Node, NodeEdge>::new();
     let root = graph.add_node(Node::Root);
 
-    for module_name in modules {
-        let path = format!("assets/SteamKit/Resources/SteamLanguage/{module_name}.steamd");
-        let content = fs::read_to_string(&path).unwrap();
+    let mut module_imports = HashMap::new();
+    let mut module_map = HashMap::new();
 
-        if let Ok((_, document)) = parser::document(&content) {
-            if document.entries.is_empty() {
-                continue;
-            }
+    println!("Parsing all modules...");
 
-            let module = graph.add_node(Node::Module(Module {
-                name: module_name.to_owned(),
-            }));
+    for (module_name, content) in &modules {
+        let (_, document) =
+            parser::document(content).map_err(|_| anyhow::anyhow!("failed to parse"))?;
+        if document.entries.is_empty() {
+            continue;
+        }
 
-            graph.add_edge(root, module, NodeEdge::Module);
+        let mut imports = vec![];
+        let module = graph.add_node(Node::Module(Module {
+            name: module_name.to_owned(),
+        }));
 
-            // TODO: first step is to build a graph of the document without any imports
-            for entry in document.entries {
-                match entry {
-                    parser::DocumentEntry::Enum(enum_) => {
-                        let node = graph.add_node(Node::Enum(Enum {
-                            name: enum_.name.to_owned(),
-                            flags: enum_.flags,
-                            type_: DataType::from(enum_.generic.unwrap_or("int".into()).as_ref()),
+        graph.add_edge(root, module, NodeEdge::Module);
+
+        for entry in document.entries {
+            match entry {
+                parser::DocumentEntry::Enum(enum_) => {
+                    let node = graph.add_node(Node::Enum(Enum {
+                        name: enum_.name.to_owned(),
+                        flags: enum_.flags,
+                        type_: DataType::from(enum_.generic.unwrap_or("int".into()).as_ref()),
+                    }));
+
+                    graph.add_edge(module, node, NodeEdge::Enum);
+
+                    for variant in enum_.variants {
+                        let variant_node = graph.add_node(Node::EnumVariant(EnumVariant {
+                            name: variant.name.to_shouty_snake_case(),
+                            removed: variant.removed,
+                            obsolete: variant.obsolete,
+                            reason: variant.reason,
+                            comment: variant.comment,
+                            value: variant.value.into(),
                         }));
 
-                        graph.add_edge(module, node, NodeEdge::Enum);
-
-                        for variant in enum_.variants {
-                            let variant_node = graph.add_node(Node::EnumVariant(EnumVariant {
-                                name: variant.name.to_shouty_snake_case(),
-                                removed: variant.removed,
-                                obsolete: variant.obsolete,
-                                reason: variant.reason,
-                                comment: variant.comment,
-                                value: variant.value.into(),
-                            }));
-
-                            graph.add_edge(
-                                node,
-                                variant_node,
-                                NodeEdge::EnumVariant,
-                            );
-                        }
+                        graph.add_edge(node, variant_node, NodeEdge::EnumVariant);
                     }
-                    parser::DocumentEntry::Class(class) => {
-                        let node = graph.add_node(Node::Class(Class {
-                            name: class.name.to_owned(),
-                            generic: class.generic,
-                            removed: class.removed,
+                }
+                parser::DocumentEntry::Class(class) => {
+                    let node = graph.add_node(Node::Class(Class {
+                        name: class.name.to_owned(),
+                        generic: class.generic,
+                        removed: class.removed,
+                    }));
+
+                    graph.add_edge(module, node, NodeEdge::Class);
+
+                    for member in class.members {
+                        let member_node = graph.add_node(Node::ClassMember(ClassMember {
+                            name: member.name.to_owned(),
+                            modifier: member.modifier,
+                            constant: member.constant,
+                            type_: DataType::from(member.type_.as_str()),
                         }));
 
-                        graph.add_edge(module, node, NodeEdge::Class);
-
-                        for member in class.members {
-                            let member_node = graph.add_node(Node::ClassMember(ClassMember {
-                                name: member.name.to_owned(),
-                                modifier: member.modifier,
-                                constant: member.constant,
-                                type_: DataType::from(member.type_.as_str()),
-                            }));
-
-                            graph.add_edge(
-                                node,
-                                member_node,
-                                NodeEdge::ClassMember,
-                            );
-                        }
+                        graph.add_edge(node, member_node, NodeEdge::ClassMember);
                     }
-                    _ => {}
+                }
+                parser::DocumentEntry::Import(import) => {
+                    let import_name = import
+                        .split(".steamd")
+                        .next()
+                        .expect("invalid import")
+                        .to_owned();
+
+                    imports.push(import_name);
                 }
             }
+        }
 
-            // let mut ref_map = HashMap::new();
-            //
-            // let classes_and_enums = graph.edge_references()
-            //     .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Class || *edge_ref.weight() == NodeEdge::Enum)
-            //     .map(|edge_ref| edge_ref.target());
-            //
-            // for node_idx in classes_and_enums {
-            //     match &graph[node_idx] {
-            //         Node::Class(class) => { ref_map.insert(class.name.to_owned(), node_idx); }
-            //         Node::Enum(enum_) => { ref_map.insert(enum_.name.to_owned(), node_idx); }
-            //         _ => {}
-            //     }
-            // }
+        module_imports.insert(module, imports);
+        module_map.insert(module_name.to_owned(), module);
+    }
 
-            // let class_members = graph.edge_references()
-            //     .filter(|edge_ref| *edge_ref.weight() == NodeEdge::ClassMember)
-            //     .map(|edge_ref| edge_ref.target())
-            //     .collect::<Vec<_>>();
+    println!("Mapping imports to modules...");
 
-            // map of all modules and all classes/enums (including imports)
-            // let module_data_structures = HashMap::<NodeIndex, HashMap<String, NodeIndex>>::new();
-
-            // for node_idx in class_members {
-            //     let Node::ClassMember(member) = &graph[node_idx] else { continue; };
-            //     let DataType::Reference(ref_str) = &member.type_ else { continue; };
-
-
-                //
-                // if let Some(target_node_idx) = ref_map.get(ref_str) {
-                //     graph.add_edge(node_idx, node_idx, NodeEdge::DataTypeReference);
-                // } else {
-                //     panic!("unknown reference data type: {ref_str}");
-                // }
-            // }
-
-            let mut writer = String::new();
-            generator::generate(&graph, module, &mut writer);
-            fs::write(format!("generated/{module_name}.rs"), writer).unwrap();
+    // go through and map any imports to the necessary modules
+    for (module, imports) in module_imports {
+        for import in imports {
+            let imported_module = module_map[&import];
+            graph.add_edge(module, imported_module, NodeEdge::Import);
         }
     }
 
-    // generate_context_map(&graph);
+    Ok(())
 }
 
 // fn generate_context_map(graph: &Graph<Node, NodeEdge>) {
@@ -198,7 +207,11 @@ impl From<parser::EnumVariantValue> for EnumVariantValue {
         match value {
             parser::EnumVariantValue::Number(num) => Self::Number(num),
             parser::EnumVariantValue::Hex(hex) => Self::Hex(hex),
-            parser::EnumVariantValue::Union(list) => Self::Union(list.into_iter().map(|name| name.to_shouty_snake_case()).collect()),
+            parser::EnumVariantValue::Union(list) => Self::Union(
+                list.into_iter()
+                    .map(|name| name.to_shouty_snake_case())
+                    .collect(),
+            ),
         }
     }
 }
@@ -222,7 +235,6 @@ pub struct ClassMember {
 pub enum Node {
     Root,
     Module(Module),
-    Import(NodeIndex),
     Enum(Enum),
     EnumVariant(EnumVariant),
     // EnumVariantValue {},
@@ -236,6 +248,29 @@ pub enum Node {
     //     // TODO: Figure out how to represent values?
     //     // Maybe use a boxed trait?
     // },
+}
+
+impl Node {
+    pub fn is_module(&self) -> bool {
+        match &self {
+            Self::Module(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_class(&self) -> bool {
+        match &self {
+            Self::Class(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_enum(&self) -> bool {
+        match &self {
+            Self::Enum(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Display for Node {
@@ -257,15 +292,13 @@ pub enum DataType {
     F32,
     F64,
     Reference(String),
-    FixedLengthArray {
-        type_: Box<Self>,
-        length: usize,
-    },
+    FixedLengthArray { type_: Box<Self>, length: usize },
 }
 
 impl From<&str> for DataType {
     fn from(s: &str) -> Self {
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?<type>[^<>]+)<(?<length>\d+)>").unwrap());
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"(?<type>[^<>]+)<(?<length>\d+)>").unwrap());
 
         if let Some(captures) = RE.captures(s) {
             let type_ = captures.name("type").unwrap().as_str();
@@ -292,7 +325,6 @@ impl From<&str> for DataType {
         }
     }
 }
-
 
 /*
 
