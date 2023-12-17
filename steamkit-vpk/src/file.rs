@@ -61,7 +61,7 @@ impl VpkFile {
 
                     file.seek(SeekFrom::Start(offset))?;
                     file.take(entry.dir_entry.file_length as u64)
-                        .read(&mut buf)?;
+                        .read_exact(&mut buf)?;
                 } else {
                     let mut path = self.path.clone();
                     path.pop();
@@ -75,7 +75,7 @@ impl VpkFile {
 
                     file.seek(SeekFrom::Start(offset))?;
                     file.take(entry.dir_entry.file_length as u64)
-                        .read(&mut buf)?;
+                        .read_exact(&mut buf)?;
                 }
 
                 Ok(Some(buf))
