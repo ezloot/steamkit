@@ -78,18 +78,14 @@ fn get_data_type_nodes(
     m
 }
 
-fn main() -> anyhow::Result<()> {
+fn build_graph() -> anyhow::Result<(Graph<Node, NodeEdge>, NodeIndex)> {
     let modules = get_modules()?;
-
-    println!("Found {} modules!", modules.len());
 
     let mut graph = Graph::<Node, NodeEdge>::new();
     let root = graph.add_node(Node::Root);
 
     let mut module_imports = HashMap::new();
     let mut module_map = HashMap::new();
-
-    println!("Parsing all modules...");
 
     for (module_name, content) in &modules {
         let (_, document) =
@@ -165,19 +161,58 @@ fn main() -> anyhow::Result<()> {
         module_map.insert(module_name.to_owned(), module);
     }
 
-    println!("Mapping imports to modules...");
-
     // go through and map any imports to the necessary modules
     for (module, imports) in module_imports {
         for import in imports {
             let imported_module = module_map[&import];
             graph.add_edge(module, imported_module, NodeEdge::Import);
         }
-
-        let m = get_data_type_nodes(&graph, module);
-        println!("{m:?}");
     }
 
+    Ok((graph, root))
+}
+
+fn build_type_nodes(graph: &mut Graph<Node, NodeEdge>, root: NodeIndex) {
+    let modules = graph
+        .neighbors_directed(root, Direction::Outgoing)
+        .filter(|node_idx| graph[*node_idx].is_module())
+        .collect::<Vec<_>>();
+
+    for module_idx in modules {
+        let type_node_map = get_data_type_nodes(&graph, module_idx);
+        let classes = graph
+            .neighbors_directed(module_idx, Direction::Outgoing)
+            .filter(|node_idx| graph[*node_idx].is_class())
+            .collect::<Vec<_>>();
+
+        for class_idx in classes {
+            let members = graph
+                .neighbors_directed(class_idx, Direction::Outgoing)
+                .filter(|node_idx| graph[*node_idx].is_class_member())
+                .collect::<Vec<_>>();
+
+            for member_idx in members {
+                let Node::ClassMember(member) = &graph[member_idx] else {
+                    continue;
+                };
+
+                let DataType::Reference(type_name) = &member.type_ else {
+                    continue;
+                };
+
+                let Some(type_node) = type_node_map.get(type_name) else {
+                    continue;
+                };
+
+                graph.add_edge(member_idx, *type_node, NodeEdge::DataTypeReference);
+            }
+        }
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    let (mut graph, root) = build_graph()?;
+    build_type_nodes(&mut graph, root);
 
     Ok(())
 }
@@ -279,6 +314,13 @@ impl Node {
     pub fn is_class(&self) -> bool {
         match &self {
             Self::Class(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_class_member(&self) -> bool {
+        match &self {
+            Self::ClassMember(_) => true,
             _ => false,
         }
     }
