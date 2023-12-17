@@ -16,6 +16,7 @@ use std::str::FromStr;
 fn get_modules() -> anyhow::Result<HashMap<String, String>> {
     let mut m = HashMap::new();
     let dir = fs::read_dir("assets/SteamKit/Resources/SteamLanguage")?;
+
     for entry in dir {
         let entry = entry?;
         let file_type = entry.file_type()?;
@@ -38,7 +39,43 @@ fn get_modules() -> anyhow::Result<HashMap<String, String>> {
             .to_owned();
         m.insert(name, fs::read_to_string(&entry.path())?);
     }
+
     Ok(m)
+}
+
+fn get_data_type_nodes(
+    graph: &Graph<Node, NodeEdge>,
+    module_node_idx: NodeIndex,
+) -> HashMap<String, NodeIndex> {
+    let mut m = HashMap::new();
+
+    let imports = graph
+        .edges_directed(module_node_idx, Direction::Outgoing)
+        .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Import)
+        .map(|edge_ref| edge_ref.target())
+        .collect::<Vec<_>>();
+
+    // add imported to map
+    for import in imports {
+        m.extend(get_data_type_nodes(graph, import));
+    }
+
+    let structures = graph
+        .neighbors_directed(module_node_idx, Direction::Outgoing)
+        .filter(|node_idx| graph[*node_idx].is_class() || graph[*node_idx].is_enum())
+        .collect::<Vec<_>>();
+
+    for node_idx in structures {
+        let name = match &graph[node_idx] {
+            Node::Class(Class { name, .. }) => name.clone(),
+            Node::Enum(Enum { name, .. }) => name.clone(),
+            _ => panic!(),
+        };
+
+        m.insert(name, node_idx);
+    }
+
+    m
 }
 
 fn main() -> anyhow::Result<()> {
@@ -46,7 +83,6 @@ fn main() -> anyhow::Result<()> {
 
     println!("Found {} modules!", modules.len());
 
-    // let modules = vec![];
     let mut graph = Graph::<Node, NodeEdge>::new();
     let root = graph.add_node(Node::Root);
 
@@ -137,23 +173,14 @@ fn main() -> anyhow::Result<()> {
             let imported_module = module_map[&import];
             graph.add_edge(module, imported_module, NodeEdge::Import);
         }
+
+        let m = get_data_type_nodes(&graph, module);
+        println!("{m:?}");
     }
+
 
     Ok(())
 }
-
-// fn generate_context_map(graph: &Graph<Node, NodeEdge>) {
-//     let module_nodes = graph.edge_references()
-//         .filter(|edge_ref| *edge_ref.weight() == NodeEdge::Module)
-//         .map(|edge_ref| edge_ref.target())
-//         .collect::<Vec<_>>();
-//
-//     for module_node in module_nodes {
-//
-//     }
-//
-//     println!("{:?}", module_nodes);
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeEdge {
@@ -237,17 +264,8 @@ pub enum Node {
     Module(Module),
     Enum(Enum),
     EnumVariant(EnumVariant),
-    // EnumVariantValue {},
     Class(Class),
     ClassMember(ClassMember),
-    // ClassMemberValue {},
-    // Typing {
-    //     // TODO: Figure out how to represent typings?
-    // },
-    // Value {
-    //     // TODO: Figure out how to represent values?
-    //     // Maybe use a boxed trait?
-    // },
 }
 
 impl Node {
