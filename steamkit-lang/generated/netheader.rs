@@ -30,3 +30,65 @@ impl Default for EUdpPacketType {
         Self::INVALID
     }
 }
+#[derive(Debug, Clone, new)]
+pub struct UdpHeader {
+    #[new(default = "todo!()")]
+    pub magic: u32,
+    pub payload_size: u16,
+    #[new(default = "todo!()")]
+    pub packet_type: TODO,
+    pub flags: u8,
+    #[new(default = "todo!()")]
+    pub source_conn_id: u32,
+    pub dest_conn_id: u32,
+    pub seq_this: u32,
+    pub seq_ack: u32,
+    pub packets_in_msg: u32,
+    pub msg_start_seq: u32,
+    pub msg_size: u32,
+}
+
+impl UdpHeader {
+    pub const MAGIC: u32 = todo!();
+}
+
+#[derive(Debug, Clone, new)]
+pub struct ChallengeData {
+    pub challenge_value: u32,
+    pub server_load: u32,
+}
+
+impl ChallengeData {
+    pub const CHALLENGE_MASK: u32 = todo!();
+}
+
+#[derive(Debug, Clone, new)]
+pub struct ConnectData {
+    pub challenge_value: u32,
+}
+
+impl ConnectData {
+    pub const CHALLENGE_MASK: u32 = todo!();
+}
+
+#[derive(Debug, Clone, new)]
+pub struct Accept {
+}
+
+impl Accept {
+}
+
+#[derive(Debug, Clone, new)]
+pub struct Datagram {
+}
+
+impl Datagram {
+}
+
+#[derive(Debug, Clone, new)]
+pub struct Disconnect {
+}
+
+impl Disconnect {
+}
+
