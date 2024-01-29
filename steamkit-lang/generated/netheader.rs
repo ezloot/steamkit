@@ -38,7 +38,7 @@ pub struct UdpHeader {
     #[new(default = "todo!()")]
     pub packet_type: TODO,
     pub flags: u8,
-    #[new(default = "todo!()")]
+    #[new(default = "512")]
     pub source_conn_id: u32,
     pub dest_conn_id: u32,
     pub seq_this: u32,
@@ -49,7 +49,7 @@ pub struct UdpHeader {
 }
 
 impl UdpHeader {
-    pub const MAGIC: u32 = todo!();
+    pub const MAGIC: u32 = 0x31305356;
 }
 
 #[derive(Debug, Clone, new)]
@@ -59,7 +59,7 @@ pub struct ChallengeData {
 }
 
 impl ChallengeData {
-    pub const CHALLENGE_MASK: u32 = todo!();
+    pub const CHALLENGE_MASK: u32 = 0xA426DF2B;
 }
 
 #[derive(Debug, Clone, new)]
@@ -71,24 +71,12 @@ impl ConnectData {
     pub const CHALLENGE_MASK: u32 = todo!();
 }
 
-#[derive(Debug, Clone, new)]
-pub struct Accept {
-}
+#[derive(Debug, Clone, Default)]
+pub struct Accept;
 
-impl Accept {
-}
+#[derive(Debug, Clone, Default)]
+pub struct Datagram;
 
-#[derive(Debug, Clone, new)]
-pub struct Datagram {
-}
-
-impl Datagram {
-}
-
-#[derive(Debug, Clone, new)]
-pub struct Disconnect {
-}
-
-impl Disconnect {
-}
+#[derive(Debug, Clone, Default)]
+pub struct Disconnect;
 

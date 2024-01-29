@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use anyhow::Context as AnyhowContext;
 use heck::{ToShoutySnakeCase, ToSnakeCase};
 
-use crate::parser::{Class, DataType, Document, DocumentEntry, Enum, EnumVariantValue};
+use crate::parser::{
+    Class, ClassMemberValue, DataType, Document, DocumentEntry, Enum, EnumVariantValue,
+};
 
 pub struct Context {
     imports: Vec<(String, String)>,
@@ -32,6 +34,16 @@ impl Generate for DataType {
             DataType::FixedLengthArray { type_, length } => {
                 Ok(format!("[{}; {}]", type_.generate(ctx)?, length))
             }
+        }
+    }
+}
+
+impl Generate for ClassMemberValue {
+    fn generate(&self, _ctx: &mut Context) -> anyhow::Result<String> {
+        match self {
+            ClassMemberValue::Number(value) => Ok(value.into()),
+            ClassMemberValue::Hex(value) => Ok(format!("0x{value}")),
+            ClassMemberValue::Reference(_) => Ok("todo!()".into()),
         }
     }
 }
@@ -147,50 +159,79 @@ impl Generate for Class {
             writer.push_str("#[deprecated]\n");
         }
 
-        writer.push_str("#[derive(Debug, Clone, new)]\n");
-        writer.push_str(&format!("pub struct {name} {{\n"));
+        let members = self
+            .members
+            .iter()
+            .filter(|member| !member.constant)
+            .collect::<Vec<_>>();
+        let constants = self
+            .members
+            .iter()
+            .filter(|member| member.constant)
+            .collect::<Vec<_>>();
 
-        for member in &self.members {
-            // skip constants
-            if member.constant {
-                continue;
+        if !members.is_empty() {
+            writer.push_str("#[derive(Debug, Clone, new)]\n");
+            writer.push_str(&format!("pub struct {name} {{\n"));
+
+            for member in members {
+                // skip constants
+                if member.constant {
+                    continue;
+                }
+
+                let mut name = member.name.to_snake_case();
+                // add workaround for reserved keywords
+                if name == "type" {
+                    name.push('_');
+                }
+
+                // TODO: handle complex types like steamidmarshal etc
+                let type_ = member.type_.generate(ctx)?;
+
+                if let Some(_value) = &member.value {
+                    let value = member
+                        .value
+                        .as_ref()
+                        .context("missing value")?
+                        .generate(ctx)?;
+
+                    writer.push_str(&format!("    #[new(default = \"{value}\")]\n"));
+                }
+
+                writer.push_str(&format!("    pub {name}: {type_},\n"));
             }
 
-            let mut name = member.name.to_snake_case();
-            // add workaround for reserved keywords
-            if name == "type" {
-                name.push('_');
-            }
-
-            // TODO: handle complex types like steamidmarshal etc
-            let type_ = member.type_.generate(ctx)?;
-
-            if let Some(_value) = &member.value {
-                // TODO: member default values
-                writer.push_str(&format!("    #[new(default = \"todo!()\")]\n"));
-            }
-
-            writer.push_str(&format!("    pub {name}: {type_},\n"));
+            writer.push_str("}\n\n");
+        } else {
+            writer.push_str("#[derive(Debug, Clone, Default)]\n");
+            writer.push_str(&format!("pub struct {name};\n\n"));
         }
 
-        writer.push_str("}\n\n");
-        writer.push_str(&format!("impl {name} {{\n"));
+        if !constants.is_empty() {
+            writer.push_str(&format!("impl {name} {{\n"));
 
-        for member in &self.members {
-            // skip constants
-            if !member.constant {
-                continue;
+            for member in &self.members {
+                // skip constants
+                if !member.constant {
+                    continue;
+                }
+
+                let name = member.name.to_shouty_snake_case();
+                let type_ = member.type_.generate(ctx)?;
+                let value = member
+                    .value
+                    .as_ref()
+                    .context("missing value")?
+                    .generate(ctx)?;
+
+                // TODO: register definition
+
+                writer.push_str(&format!("    pub const {name}: {type_} = {value};\n"));
             }
 
-            let name = member.name.to_shouty_snake_case();
-            let type_ = member.type_.generate(ctx)?;
-
-            // TODO: register definition
-
-            writer.push_str(&format!("    pub const {name}: {type_} = todo!();\n"));
+            writer.push_str("}\n\n");
         }
-
-        writer.push_str("}\n\n");
 
         Ok(writer)
     }
