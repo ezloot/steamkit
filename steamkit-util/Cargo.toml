@@ -13,7 +13,6 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 [dependencies]
 thiserror = "1.0"
-# num_enum = "0.6"
 regex = "1.10"
 lazy_static = "1.4"
 rust-crypto = "0.2"

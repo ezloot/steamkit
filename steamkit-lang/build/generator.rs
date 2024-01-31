@@ -322,13 +322,42 @@ impl Generate for Enum {
                 ])
                 .context("missing mapping")?;
 
+            let variant_values = self
+                .variants
+                .iter()
+                .filter(|variant| !variant.removed)
+                .map(|variant| {
+                    match &variant.value {
+                        EnumVariantValue::Number(num) => format!("{}", num),
+                        EnumVariantValue::Hex(hex) => format!("0x{}", hex),
+                        _ => panic!("only flags can have union variants")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
             writer.push_str(&format!("\nimpl Default for {name} {{\n"));
             writer.push_str(&"    fn default() -> Self {\n");
             writer.push_str(&format!("        Self::{variant_name}\n"));
             writer.push_str(&"    }\n");
             writer.push_str(&"}\n");
 
-            // TODO: add a way to verify validity of value
+            writer.push_str(&format!("\nimpl crate::EnumValues<{type_}> for {name} {{\n"));
+            writer.push_str(&format!("    fn values() -> &'static [{type_}] {{\n"));
+            writer.push_str(&format!("        &[{variant_values}]\n"));
+            writer.push_str(&"    }\n");
+            writer.push_str(&"}\n");
+
+            writer.push_str(&format!("\nimpl std::convert::TryFrom<{type_}> for {name} {{\n"));
+            writer.push_str(&format!("    type Error = {type_};\n"));
+            writer.push_str(&format!("    fn try_from(value: {type_}) -> Result<Self, Self::Error> {{\n"));
+            writer.push_str("        if Self::values().contains(&value) {\n");
+            writer.push_str("            Ok(Self(value))\n");
+            writer.push_str("        } else {\n");
+            writer.push_str("            Err(value)\n");
+            writer.push_str(&"        }\n");
+            writer.push_str(&"    }\n");
+            writer.push_str(&"}\n");
         }
 
         Ok(writer)
@@ -423,8 +452,6 @@ impl Generate for Class {
                     .context("missing value")?
                     .generate(ctx)?;
 
-                // TODO: register definition
-
                 writer.push_str(&format!("{prefix}    pub const {name}: {type_} = {value};\n"));
             }
 
@@ -498,6 +525,7 @@ pub fn generate(modules: HashMap<String, Document>) -> anyhow::Result<HashMap<St
 
         // generate imports for this module
         ctx.imports.clear();
+        ctx.imports.insert("crate::EnumValues".into());
         for import in &imports {
             ctx.imports.insert(format!("super::{import}::*"));
         }
