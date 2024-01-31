@@ -1,15 +1,51 @@
-use generator::Generate;
-use std::{env, fs, path::PathBuf};
-use petgraph::Graph;
-use petgraph_graphml::GraphMl;
-
 mod generator;
 mod parser;
 
-fn main() {
+use anyhow::Context;
+
+use std::collections::HashMap;
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+
+fn get_modules() -> anyhow::Result<HashMap<String, parser::Document>> {
+    let mut m = HashMap::new();
+    let dir = fs::read_dir("assets/SteamKit/Resources/SteamLanguage")?;
+
+    for entry in dir {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            continue;
+        }
+
+        // make sure valid extension
+        if entry.path().extension().is_none() || entry.path().extension().unwrap() != "steamd" {
+            continue;
+        }
+
+        let name = entry
+            .path()
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .context("invalid file stem")?
+            .to_owned();
+
+        let content = fs::read_to_string(&entry.path())?;
+        let document = parser::parse(&content)?;
+
+        m.insert(name, document);
+    }
+
+    Ok(m)
+}
+
+fn main() -> anyhow::Result<()> {
     // use cargo out dir for build files
-    // let cargo_out_dir = env::var("OUT_DIR").expect("OUT_DIR env var not set");
-    let mut out_dir = PathBuf::from("src");
+    let cargo_out_dir = env::var("OUT_DIR").expect("OUT_DIR env var not set");
+    let mut out_dir = PathBuf::from(cargo_out_dir);
     out_dir.push("generated");
 
     // remove previous build files
@@ -18,30 +54,27 @@ fn main() {
     }
 
     // create dir
-    fs::create_dir(&out_dir).unwrap();
+    fs::create_dir(&out_dir)?;
 
-    let modules = vec!["emsg", "enums", "eresult", "steammsg"];
+    let modules = get_modules()?;
+    let outputs = generator::generate(modules)?;
 
-    for module in &modules {
-        let path = format!("assets/SteamKit/Resources/SteamLanguage/{module}.steamd");
-        let content = fs::read_to_string(&path).unwrap();
-
-        if let Ok((_, document)) = parser::document(&content) {
-            if document.entries.is_empty() {
-                continue;
-            }
-
-            // TODO: document classes/enums should have a map of any changed names (from the steamd file) to the rust name
-            // TODO: go through the document and build a list of imports (support nesting but make sure to not loop indefinitely)
-            // TODO: when generating type information, if referencing a foreign type (from an import) and add to a list of "used" import-types
-            // TODO: using the import-types list, in the header of the rust codegen file, add the appropriate use statements
-
-            let mut path = out_dir.clone();
-            path.push(format!("{module}.rs"));
-
-            // todo generate content for module
-            let content = document.generate_stream().to_string();
-            fs::write(path, content).unwrap();
-        }
+    for (name, output) in &outputs {
+        let mut path = out_dir.clone();
+        path.push(format!("{name}.rs"));
+        fs::write(path, output)?;
     }
+
+    {
+        let mut path = out_dir.clone();
+        path.push("mod.rs");
+
+        let root = outputs
+            .keys()
+            .map(|k| format!("pub mod {};\n", k))
+            .collect::<String>();
+        fs::write(path, root)?;
+    }
+
+    Ok(())
 }

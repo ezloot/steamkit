@@ -9,12 +9,62 @@ use nom::{
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
+use once_cell::sync::Lazy;
+use regex::Regex;
+use std::str::FromStr;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataType {
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F32,
+    F64,
+    Reference(String),
+    FixedLengthArray { type_: Box<Self>, length: usize },
+}
+
+impl From<&str> for DataType {
+    fn from(s: &str) -> Self {
+        static RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"(?<type>[^<>]+)<(?<length>\d+)>").unwrap());
+
+        if let Some(captures) = RE.captures(s) {
+            let type_ = captures.name("type").unwrap().as_str();
+            let length = captures.name("length").unwrap().as_str();
+
+            return Self::FixedLengthArray {
+                type_: Box::new(Self::from(type_)),
+                length: usize::from_str(length).unwrap(),
+            };
+        }
+
+        match s {
+            "byte" => Self::U8,
+            "ushort" => Self::U16,
+            "uint" => Self::U32,
+            "ulong" => Self::U64,
+            "char" => Self::I8,
+            "short" => Self::I16,
+            "int" => Self::I32,
+            "long" => Self::I64,
+            "float" => Self::F32,
+            "double" => Self::F64,
+            _ => Self::Reference(s.to_owned()),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
-pub enum EnumValue {
+pub enum EnumVariantValue {
     Number(String),
     Hex(String),
-    Or(Vec<String>),
+    Union(Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -24,13 +74,13 @@ pub struct EnumVariant {
     pub obsolete: bool,
     pub reason: Option<String>,
     pub comment: Option<String>,
-    pub value: EnumValue,
+    pub value: EnumVariantValue,
 }
 
 #[derive(Debug, Clone)]
 pub struct Enum {
     pub name: String,
-    pub generic: Option<String>,
+    pub generic: Option<DataType>,
     pub flags: bool,
     pub variants: Vec<EnumVariant>,
 }
@@ -38,7 +88,7 @@ pub struct Enum {
 #[derive(Debug, Clone)]
 pub struct ClassMember {
     pub name: String,
-    pub type_: String,
+    pub type_: DataType,
     pub modifier: Option<String>,
     pub constant: bool,
     pub value: Option<ClassMemberValue>,
@@ -54,7 +104,7 @@ pub enum ClassMemberValue {
 #[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
-    pub generic: Option<String>,
+    pub generic: Option<DataType>,
     pub removed: bool,
     pub members: Vec<ClassMember>,
 }
@@ -79,8 +129,10 @@ fn parse_ref(input: &str) -> IResult<&str, &str> {
     recognize(tuple((identifier, alt((tag("::"), tag("."))), identifier)))(input)
 }
 
-fn generic(input: &str) -> IResult<&str, &str> {
-    delimited(tag("<"), is_not("<>\n"), tag(">"))(input)
+fn generic(input: &str) -> IResult<&str, DataType> {
+    map(delimited(tag("<"), is_not("<>\n"), tag(">")), |s| {
+        DataType::from(s)
+    })(input)
 }
 
 fn identifier(input: &str) -> IResult<&str, &str> {
@@ -95,15 +147,15 @@ fn parse_type(input: &str) -> IResult<&str, &str> {
     )))(input)
 }
 
-fn enum_variant_value(input: &str) -> IResult<&str, EnumValue> {
+fn enum_variant_value(input: &str) -> IResult<&str, EnumVariantValue> {
     alt((
-        map(hex, |hex| EnumValue::Hex(hex.to_owned())),
+        map(hex, |hex| EnumVariantValue::Hex(hex.to_owned())),
         map(recognize(tuple((opt(tag("-")), digit1))), |num: &str| {
-            EnumValue::Number(num.to_owned())
+            EnumVariantValue::Number(num.to_owned())
         }),
         map(
             separated_list1(tuple((multispace0, tag("|"), multispace0)), identifier),
-            |list| EnumValue::Or(list.into_iter().map(str::to_owned).collect()),
+            |list| EnumVariantValue::Union(list.into_iter().map(str::to_owned).collect()),
         ),
     ))(input)
 }
@@ -172,7 +224,7 @@ fn parse_enum(input: &str) -> IResult<&str, Enum> {
         )),
         |(_, name, generic, flags, _, variants, _)| Enum {
             name: name.to_owned(),
-            generic: generic.map(str::to_string),
+            generic,
             flags: flags.is_some(),
             variants,
         },
@@ -206,7 +258,7 @@ fn class_member(input: &str) -> IResult<&str, ClassMember> {
                         )),
                         |(_, type_, name)| ClassMember {
                             name: name.to_owned(),
-                            type_: type_.to_owned(),
+                            type_: DataType::from(type_),
                             modifier: None,
                             constant: true,
                             value: None,
@@ -220,7 +272,7 @@ fn class_member(input: &str) -> IResult<&str, ClassMember> {
                         )),
                         |(modifier, type_, name)| ClassMember {
                             name: name.to_owned(),
-                            type_: type_.to_owned(),
+                            type_: DataType::from(type_),
                             modifier: Some(modifier.to_owned()),
                             constant: false,
                             value: None,
@@ -230,7 +282,7 @@ fn class_member(input: &str) -> IResult<&str, ClassMember> {
                         tuple((parse_type, preceded(space1, identifier))),
                         |(type_, name)| ClassMember {
                             name: name.to_owned(),
-                            type_: type_.to_owned(),
+                            type_: DataType::from(type_),
                             modifier: None,
                             constant: false,
                             value: None,
@@ -272,7 +324,7 @@ fn class(input: &str) -> IResult<&str, Class> {
         )),
         |(_, name, generic, removed, _, members, _)| Class {
             name: name.to_owned(),
-            generic: generic.map(str::to_string),
+            generic,
             removed: removed.is_some(),
             members,
         },
@@ -290,7 +342,7 @@ fn import(input: &str) -> IResult<&str, &str> {
     )(input)
 }
 
-pub fn document(input: &str) -> IResult<&str, Document> {
+fn document(input: &str) -> IResult<&str, Document> {
     map(
         many0(preceded(
             multispace0,
@@ -302,4 +354,9 @@ pub fn document(input: &str) -> IResult<&str, Document> {
         )),
         |entries| Document { entries },
     )(input)
+}
+
+pub fn parse(input: &str) -> anyhow::Result<Document> {
+    let (_, document) = document(input).map_err(|_| anyhow::anyhow!("failed to parse"))?;
+    Ok(document)
 }
