@@ -243,6 +243,9 @@ impl Generate for Enum {
         };
 
         writer.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]\n");
+        writer.push_str(
+            "#[cfg_attr(feature = \"serde\", derive(serde::Serialize, serde::Deserialize))]\n",
+        );
         writer.push_str(&format!("pub struct {name}(pub {type_});\n\n"));
         writer.push_str(&format!("impl {name} {{\n"));
 
@@ -326,12 +329,10 @@ impl Generate for Enum {
                 .variants
                 .iter()
                 .filter(|variant| !variant.removed)
-                .map(|variant| {
-                    match &variant.value {
-                        EnumVariantValue::Number(num) => format!("{}", num),
-                        EnumVariantValue::Hex(hex) => format!("0x{}", hex),
-                        _ => panic!("only flags can have union variants")
-                    }
+                .map(|variant| match &variant.value {
+                    EnumVariantValue::Number(num) => format!("{}", num),
+                    EnumVariantValue::Hex(hex) => format!("0x{}", hex),
+                    _ => panic!("only flags can have union variants"),
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -342,15 +343,21 @@ impl Generate for Enum {
             writer.push_str(&"    }\n");
             writer.push_str(&"}\n");
 
-            writer.push_str(&format!("\nimpl crate::EnumValues<{type_}> for {name} {{\n"));
+            writer.push_str(&format!(
+                "\nimpl crate::EnumValues<{type_}> for {name} {{\n"
+            ));
             writer.push_str(&format!("    fn values() -> &'static [{type_}] {{\n"));
             writer.push_str(&format!("        &[{variant_values}]\n"));
             writer.push_str(&"    }\n");
             writer.push_str(&"}\n");
 
-            writer.push_str(&format!("\nimpl std::convert::TryFrom<{type_}> for {name} {{\n"));
+            writer.push_str(&format!(
+                "\nimpl std::convert::TryFrom<{type_}> for {name} {{\n"
+            ));
             writer.push_str(&format!("    type Error = {type_};\n"));
-            writer.push_str(&format!("    fn try_from(value: {type_}) -> Result<Self, Self::Error> {{\n"));
+            writer.push_str(&format!(
+                "    fn try_from(value: {type_}) -> Result<Self, Self::Error> {{\n"
+            ));
             writer.push_str("        if Self::values().contains(&value) {\n");
             writer.push_str("            Ok(Self(value))\n");
             writer.push_str("        } else {\n");
@@ -369,11 +376,7 @@ impl Generate for Class {
         let mut writer = String::new();
 
         let name = &self.name;
-        let prefix = if self.removed {
-            "// "
-        } else {
-            ""
-        };
+        let prefix = if self.removed { "// " } else { "" };
 
         let members = self
             .members
@@ -387,7 +390,10 @@ impl Generate for Class {
             .collect::<Vec<_>>();
 
         if !members.is_empty() {
-            writer.push_str(&format!("{prefix}#[derive(Debug, Clone, derive_new::new)]\n"));
+            writer.push_str(&format!(
+                "{prefix}#[derive(Debug, Clone, derive_new::new)]\n"
+            ));
+            writer.push_str(&format!("{prefix}#[cfg_attr(feature = \"serde\", derive(serde::Serialize, serde::Deserialize))]\n"));
             writer.push_str(&format!("{prefix}pub struct {name} {{\n"));
 
             for member in members {
@@ -407,6 +413,10 @@ impl Generate for Class {
 
                 // TODO: handle complex types like steamidmarshal etc
                 let type_ = member.type_.generate(ctx)?;
+                let is_array = match &member.type_ {
+                    DataType::FixedLengthArray { .. } => true,
+                    _ => false,
+                };
 
                 if let Some(_value) = &member.value {
                     let value = member
@@ -418,12 +428,17 @@ impl Generate for Class {
                     writer.push_str(&format!("{prefix}    #[new(value = \"{value}\")]\n"));
                 }
 
+                if is_array {
+                    writer.push_str(&format!("{prefix}    #[cfg_attr(feature = \"serde\", serde(with = \"serde_big_array::BigArray\"))]\n"));
+                }
+
                 writer.push_str(&format!("{prefix}    pub {name}: {type_},\n"));
             }
 
             writer.push_str(&format!("{prefix}}}\n\n"));
         } else {
             writer.push_str(&format!("{prefix}#[derive(Debug, Clone, Default)]\n"));
+            writer.push_str(&format!("{prefix}#[cfg_attr(feature = \"serde\", derive(serde::Serialize, serde::Deserialize))]\n"));
             writer.push_str(&format!("{prefix}pub struct {name};\n\n"));
         }
 
@@ -452,7 +467,9 @@ impl Generate for Class {
                     .context("missing value")?
                     .generate(ctx)?;
 
-                writer.push_str(&format!("{prefix}    pub const {name}: {type_} = {value};\n"));
+                writer.push_str(&format!(
+                    "{prefix}    pub const {name}: {type_} = {value};\n"
+                ));
             }
 
             writer.push_str(&format!("{prefix}}}\n\n"));
