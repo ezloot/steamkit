@@ -413,8 +413,8 @@ impl Generate for Class {
 
                 // TODO: handle complex types like steamidmarshal etc
                 let type_ = member.type_.generate(ctx)?;
-                let is_array = match &member.type_ {
-                    DataType::FixedLengthArray { .. } => true,
+                let needs_big_array = match &member.type_ {
+                    DataType::FixedLengthArray { length, .. } => *length > 32,
                     _ => false,
                 };
 
@@ -428,7 +428,7 @@ impl Generate for Class {
                     writer.push_str(&format!("{prefix}    #[new(value = \"{value}\")]\n"));
                 }
 
-                if is_array {
+                if needs_big_array {
                     writer.push_str(&format!("{prefix}    #[cfg_attr(feature = \"serde\", serde(with = \"serde_big_array::BigArray\"))]\n"));
                 }
 
