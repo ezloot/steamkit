@@ -14,7 +14,7 @@ build = "build/main.rs"
 
 [dependencies]
 derive-new = "0.6"
-serde-big-array = "0.5"
+serde-big-array = { version = "0.5", optional = true }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 
 [build-dependencies]
@@ -26,4 +26,4 @@ anyhow = "1.0"
 
 [features]
 default = ["serde"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:serde-big-array"]
