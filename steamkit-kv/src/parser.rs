@@ -1,12 +1,10 @@
 use nom::{
     branch::alt,
-    bytes::complete::escaped,
-    character::complete::{
-        char, line_ending, none_of, not_line_ending, one_of,
-        space0, space1,
-    },
-    combinator::{cut, map, opt, recognize},
-    multi::{many1, separated_list0, many0},
+    bytes::complete::{escaped, tag, take_while, take_while1},
+    character::complete::{char, line_ending, none_of, not_line_ending, one_of, space0, space1},
+    combinator::{cut, map, opt, recognize, value},
+    complete::take,
+    multi::{many0, many1, separated_list0},
     sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };
@@ -33,13 +31,14 @@ fn unquoted_string(input: &str) -> IResult<&str, &str> {
 }
 
 fn quoted_string(input: &str) -> IResult<&str, &str> {
-    preceded(
-        char('"'),
-        cut(terminated(
+    alt((
+        delimited(
+            char('"'),
             escaped(none_of("\"\\"), '\\', one_of("\"nt\\")),
             char('"'),
-        )),
-    )(input)
+        ),
+        value("", tag("\"\"")),
+    ))(input)
 }
 
 fn parse_macro(input: &str) -> IResult<&str, String> {

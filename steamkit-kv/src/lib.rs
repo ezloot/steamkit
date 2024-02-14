@@ -123,6 +123,51 @@ impl KeyValue {
             Some(self)
         }
     }
+
+    pub fn iter(&self) -> KeyValueIter {
+        match self {
+            Self::String(_) => KeyValueIter::Empty,
+            Self::Map(map) => KeyValueIter::Map(map.iter()),
+        }
+    }
+
+    pub fn as_vec(&self) -> Vec<&KeyValue> {
+        let mut v = self.iter().collect::<Vec<_>>();
+
+        v.sort_by(|(a, _), (b, _)| {
+            let a_num = a.parse::<u32>().unwrap_or(u32::MAX);
+            let b_num = b.parse::<u32>().unwrap_or(u32::MAX);
+            a_num.cmp(&b_num)
+        });
+
+        v.into_iter().map(|(_, kv)| kv).collect()
+    }
+
+    pub fn as_str_vec(&self) -> Vec<&str> {
+        self.as_vec()
+            .iter()
+            .filter_map(|kv| match kv {
+                KeyValue::String(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+pub enum KeyValueIter<'a> {
+    Empty,
+    Map(indexmap::map::Iter<'a, String, KeyValue>),
+}
+
+impl<'a> Iterator for KeyValueIter<'a> {
+    type Item = (&'a String, &'a KeyValue);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Empty => None,
+            Self::Map(iter) => iter.next(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -455,6 +500,21 @@ mod tests {
         assert_eq!(
             kv.get_str(["items_game", "items", "507", "name"]),
             Some("weapon_knife_karambit")
+        );
+    }
+
+    #[test]
+    fn empty_quotes() {
+        assert!(KeyValue::parse(r#""key" """#).is_ok());
+    }
+
+    #[test]
+    fn escaped() {
+        let kv = KeyValue::parse(r#""key" "\n hello world""#);
+        assert!(kv.is_ok());
+        assert_eq!(
+            kv.unwrap().get(["key"]),
+            Some(&KeyValue::String("\n hello world".into()))
         );
     }
 }
