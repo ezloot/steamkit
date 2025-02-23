@@ -73,7 +73,7 @@ jobs:
         if: ${{ runner.os == 'linux' }}
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends lld clang libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+          sudo apt-get install --no-install-recommends lld clang
       - name: Set up mold linker
         if: ${{ runner.os == 'linux' }}
         uses: rui314/setup-mold@v1
