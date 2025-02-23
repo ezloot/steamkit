@@ -1,0 +1,28 @@
+[package]
+name = "steamkit-vdf"
+version = "0.2.3"
+edition = "2021"
+authors = ["JAD3N <me@jaden.bio>"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/jad3n/steamkit"
+documentation = "https://docs.rs/steamkit-kv/0.2.3"
+description = """
+This crate is designed to be a bunch of tools for interacting with the Steam API.
+"""
+
+[dependencies]
+thiserror = "2.0"
+
+[dependencies.regex-lite]
+version = "0.1"
+optional = true
+
+[dependencies.regex]
+version = "1.11"
+optional = true
+
+[features]
+default = ["regex"]
+regex = ["dep:regex"]
+regex-lite = ["dep:regex-lite"]
