@@ -1,11 +1,3 @@
 [workspace]
-members = [
-    "steamkit",
-    "steamkit-kv",
-    "steamkit-protos",
-    "steamkit-client",
-    "steamkit-util",
-    "steamkit-lang",
-    "steamkit-vpk",
-]
+members = ["steamkit", "steamkit-vdf", "steamkit-vdf/fuzz"]
 resolver = "2"
