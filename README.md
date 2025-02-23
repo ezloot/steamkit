@@ -16,6 +16,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 # To-do
 
 - [ ] Add `steamkit-vdf` to parse [VDF](https://developer.valvesoftware.com/wiki/VDF) files.
+- [ ] Add `serde` feature for `steamkit-vdf` to allow deserializing to structs.
 - [ ] Add `steamkit-protobuf-dumper` to download the Steam client and extract protobufs from the Linux `steamclient.so` file.
 - [ ] Add `steamkit-protobuf` for a converted format of the dumped binary.
 - [ ] Add `steamkit-util` for common Steam related data structures like [SteamID](https://developer.valvesoftware.com/wiki/SteamID).
