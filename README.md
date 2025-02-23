@@ -13,17 +13,8 @@
 
 This crate is designed to be a bunch of tools for interacting with the Steam API.
 
-# Goals
-
-- [ ] Be async-runtime agnostic-ish by at least offering features for popular runtimes.
-- [ ] Have an easy to use API but still flexible.
-- [ ] Maybe support `no-std`? ***Probably not happening.***
-
 # To-do
 
-- [ ] Add `steamd` file parser and codegen.
-  - [x] Enum parsing and codegen.
-  - [ ] Class parsing and codgen.
-  - [ ] Support constant values for classes.
-  - [ ] Support default values for class members.
-  - [ ] Trait for getting EMsg enum variant for classes.
+- [ ] Add `steamkit-vdf` to parse [VDF](https://developer.valvesoftware.com/wiki/VDF) files.
+- [ ] Add `steamkit-protobuf-dumper` to download the Steam client and extract protobufs from the Linux `steamclient.so` file.
+- [ ] Add `steamkit-protobuf` for a converted format of the dumped binary.
