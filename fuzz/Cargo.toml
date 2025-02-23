@@ -1,0 +1,27 @@
+[package]
+name = "steamkit-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.steamkit]
+path = "../steamkit"
+features = ["full"]
+
+# Use independent workspace for fuzzers
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "parse_vdf"
+path = "fuzz_targets/parse_vdf.rs"
+test = false
+doc = false
+bench = false
+required-features = ["steamkit/vdf"]
