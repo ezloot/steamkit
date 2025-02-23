@@ -1,4 +1,4 @@
-use crate::{entry::Entry, error::Error};
+use std::io::{BufReader, Cursor, Read};
 
 #[cfg(all(feature = "regex", feature = "regex-lite"))]
 compile_error!("Features 'regex' and 'regex-lite' cannot be enabled at the same time.");
@@ -6,6 +6,8 @@ compile_error!("Features 'regex' and 'regex-lite' cannot be enabled at the same 
 use regex::Regex;
 #[cfg(feature = "regex-lite")]
 use regex_lite::Regex;
+
+use crate::{Group, Result};
 
 thread_local! {
     static INT_REGEX: Regex = Regex::new(r"^\-?\d+$").unwrap();
@@ -19,6 +21,14 @@ pub struct Options {
     pub conditionals: Option<Vec<String>>,
 }
 
-pub fn parse(input: &str, options: &Options) -> Result<Entry, Error> {
-    todo!()
+pub fn from_str(input: &str, options: &Options) -> Result<Group> {
+    let reader = Cursor::new(input.as_bytes());
+    from_reader(reader, options)
+}
+
+pub fn from_reader<R: Read>(input: R, options: &Options) -> Result<Group> {
+    let mut reader = BufReader::new(input);
+    let mut entries = vec![];
+
+    Ok(Group { entries })
 }

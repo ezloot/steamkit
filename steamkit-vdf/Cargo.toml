@@ -13,6 +13,7 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 [dependencies]
 thiserror = "2.0"
+cfg-if = "1.0"
 
 [dependencies.regex-lite]
 version = "0.1"
@@ -26,3 +27,4 @@ optional = true
 default = ["regex"]
 regex = ["dep:regex"]
 regex-lite = ["dep:regex-lite"]
+precision = []
