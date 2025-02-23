@@ -164,11 +164,8 @@ impl Accessor for Group {
         for entry in entries {
             if remaining_keys.is_empty() {
                 v.push(&entry.value);
-            } else {
-                match &entry.value {
-                    Value::Group(group) => v.extend(group.get_all(remaining_keys)),
-                    _ => {}
-                }
+            } else if let Value::Group(group) = &entry.value {
+                v.extend(group.get_all(remaining_keys));
             }
         }
 
@@ -184,11 +181,8 @@ impl Accessor for Group {
         for entry in entries {
             if remaining_keys.is_empty() {
                 v.push(&mut entry.value);
-            } else {
-                match &mut entry.value {
-                    Value::Group(group) => v.extend(group.get_all_mut(remaining_keys)),
-                    _ => {}
-                }
+            } else if let Value::Group(group) = &mut entry.value {
+                v.extend(group.get_all_mut(remaining_keys));
             }
         }
 
@@ -198,7 +192,7 @@ impl Accessor for Group {
 
 #[test]
 fn test() {
-    let mut group = Group {
+    let group = Group {
         entries: vec![Entry {
             name: "key".to_string(),
             value: Group {

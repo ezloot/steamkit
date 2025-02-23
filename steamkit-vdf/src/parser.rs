@@ -26,9 +26,9 @@ pub fn from_str(input: &str, options: &Options) -> Result<Group> {
     from_reader(reader, options)
 }
 
-pub fn from_reader<R: Read>(input: R, options: &Options) -> Result<Group> {
-    let mut reader = BufReader::new(input);
-    let mut entries = vec![];
+pub fn from_reader<R: Read>(input: R, _options: &Options) -> Result<Group> {
+    let _reader = BufReader::new(input);
+    let entries = vec![];
 
     Ok(Group { entries })
 }
