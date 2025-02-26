@@ -19,9 +19,9 @@ pub struct Options {
     pub conditionals: Option<Vec<String>>,
 }
 
-pub fn from_str(_input: &str, _options: &Options) -> Result<Group> {
+pub fn from_str(input: &str, _options: &Options) -> Result<Group> {
     let entries = vec![];
-    // let mut _reader = input.chars().peekable();
+    let mut reader = input.chars().peekable();
 
     Ok(Group { entries })
 }
