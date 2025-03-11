@@ -1,17 +1,4 @@
-#[cfg(all(feature = "regex", feature = "regex-lite"))]
-compile_error!("Features 'regex' and 'regex-lite' cannot be enabled at the same time.");
-#[cfg(feature = "regex")]
-use regex::Regex;
-#[cfg(feature = "regex-lite")]
-use regex_lite::Regex;
-
 use crate::{Group, Result};
-
-thread_local! {
-    static INT_REGEX: Regex = Regex::new(r"^\-?\d+$").unwrap();
-    static FLOAT_REGEX: Regex = Regex::new(r"\-?\d+\.\d+$").unwrap();
-    static BOOL_REGEX: Regex = Regex::new(r"(?i)^(true|false)$").unwrap();
-}
 
 #[derive(Debug, Default)]
 pub struct Options {
@@ -19,9 +6,61 @@ pub struct Options {
     pub conditionals: Option<Vec<String>>,
 }
 
+struct Reader<'a> {
+    bytes: &'a [u8],
+    position: usize,
+}
+
+impl<'a> From<&'a str> for Reader<'a> {
+    fn from(input: &'a str) -> Self {
+        Self {
+            bytes: input.as_bytes(),
+            position: 0,
+        }
+    }
+}
+
+impl<'a> Reader<'a> {
+    fn peek(&self) -> Option<u8> {
+        if self.position < self.bytes.len() {
+            Some(self.bytes[self.position])
+        } else {
+            None
+        }
+    }
+
+    fn next(&mut self) -> Option<u8> {
+        let byte = self.peek()?;
+        self.position += 1;
+        Some(byte)
+    }
+
+    fn skip_whitespace(&mut self, newlines: bool) {
+        while let Some(byte) = self.peek() {
+            match byte {
+                b' ' | b'\t' => {
+                    self.next();
+                }
+                b'\r' | b'\n' => {
+                    if newlines {
+                        self.next();
+
+                        if byte == b'\r' && self.peek() == Some(b'\n') {
+                            self.next();
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        }
+    }
+}
+
 pub fn from_str(input: &str, _options: &Options) -> Result<Group> {
     let entries = vec![];
-    let mut reader = input.chars().peekable();
+    let reader = Reader::from(input);
 
     Ok(Group { entries })
 }
