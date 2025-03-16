@@ -1,8 +1,18 @@
 use crate::{Group, Result};
 
 #[derive(Debug, Default)]
+pub enum DuplicateMode {
+    First,
+    Last,
+    #[default]
+    Keep,
+}
+
+#[derive(Debug, Default)]
 pub struct Options {
     pub types: bool,
+    pub escape_sequences: bool,
+    pub duplicate_mode: DuplicateMode,
     pub conditionals: Option<Vec<String>>,
 }
 
@@ -20,42 +30,12 @@ impl<'a> From<&'a str> for Reader<'a> {
     }
 }
 
-impl<'a> Reader<'a> {
-    fn peek(&self) -> Option<u8> {
-        if self.position < self.bytes.len() {
-            Some(self.bytes[self.position])
-        } else {
-            None
-        }
-    }
-
-    fn next(&mut self) -> Option<u8> {
-        let byte = self.peek()?;
-        self.position += 1;
-        Some(byte)
-    }
-
-    fn skip_whitespace(&mut self, newlines: bool) {
-        while let Some(byte) = self.peek() {
-            match byte {
-                b' ' | b'\t' => {
-                    self.next();
-                }
-                b'\r' | b'\n' => {
-                    if newlines {
-                        self.next();
-
-                        if byte == b'\r' && self.peek() == Some(b'\n') {
-                            self.next();
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                _ => break,
-            }
-        }
-    }
+enum Token<'a> {
+    String(&'a str),
+    GroupStart(&'a str),
+    GroupEnd(&'a str),
+    Comment(&'a str),
+    Whitespace(&'a str),
 }
 
 pub fn from_str(input: &str, _options: &Options) -> Result<Group> {
