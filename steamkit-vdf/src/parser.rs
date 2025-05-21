@@ -1,4 +1,4 @@
-/// Reference: https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/tier1/KeyValues.cpp
+// Reference: https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/tier1/KeyValues.cpp
 
 use crate::{Group, Result};
 
@@ -104,7 +104,7 @@ pub fn from_str(input: &str, _options: &Options) -> Result<Group> {
     let mut reader = Reader::from(input);
 
     while let Some(token) = reader.read_token() {
-        println!("{:?}", token);
+        println!("{token:?}");
     }
 
     Ok(Group { entries })
