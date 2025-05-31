@@ -1,2 +1,2 @@
-#[cfg(feature = "vdf")]
-pub use steamkit_vdf as vdf;
+#[cfg(feature = "kv")]
+pub use steamkit_kv as kv;

@@ -11,13 +11,13 @@ description = """
 This crate is designed to be a bunch of tools for interacting with the Steam API.
 """
 
-[dependencies.steamkit-vdf]
-path = "../steamkit-vdf"
+[dependencies.steamkit-kv]
+path = "../steamkit-kv"
 version = "0.2.0"
 optional = true
 
 # steamkit
 [features]
 default = []
-vdf = ["dep:steamkit-vdf"]
-full = ["vdf"]
+kv = ["dep:steamkit-kv"]
+full = ["kv"]

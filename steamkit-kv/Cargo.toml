@@ -1,5 +1,5 @@
 [package]
-name = "steamkit-vdf"
+name = "steamkit-kv"
 version = "0.2.3"
 edition = "2024"
 authors = ["JAD3N <me@jaden.bio>"]
@@ -13,9 +13,14 @@ This crate is designed to be a bunch of tools for interacting with the Steam API
 
 [dependencies]
 thiserror = "2.0"
-cfg-if = "1.0"
-memchr = "2.7"
+slotmap = "1.0.7"
+
+[dependencies.lasso]
+version = "0.7"
+optional = true
 
 [features]
-default = []
+default = ["intern-keys"]
 precision = []
+intern-keys = ["dep:lasso"]
+mutable-string  = []
